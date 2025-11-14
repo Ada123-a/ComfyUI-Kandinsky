@@ -150,7 +150,11 @@ def generate(
             pred_velocity = torch.nan_to_num(pred_velocity, nan=0.0, posinf=0.0, neginf=0.0)
 
         current_latent = current_latent + dt * pred_velocity
-        current_latent = torch.clamp(current_latent, min=-10.0, max=10.0)
+
+        max_val = current_latent.abs().max()
+        if max_val > 50.0:
+            scale = 50.0 / max_val
+            current_latent = current_latent * scale
 
         if torch.isnan(current_latent).any() or torch.isinf(current_latent).any():
             current_latent = torch.nan_to_num(current_latent, nan=0.0, posinf=0.0, neginf=0.0)
