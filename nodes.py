@@ -24,12 +24,14 @@ class KandinskyLoader(io.ComfyNode):
             inputs=[
                 io.Combo.Input("variant", options=list(KANDINSKY_CONFIGS.keys()), default="sft_5s"),
                 io.Boolean.Input("use_magcache", default=False, tooltip="Enable MagCache for faster inference."),
+                io.Float.Input("magcache_threshold", default=0.08, min=0.01, max=0.3, step=0.01,
+                              tooltip="MagCache quality threshold. Lower = better quality, slower. Recommended: 0.12 for I2V, 0.06-0.08 for T2V."),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
-    def execute(cls, variant: str, use_magcache: bool) -> io.NodeOutput:
+    def execute(cls, variant: str, use_magcache: bool, magcache_threshold: float) -> io.NodeOutput:
         from .kandinsky_patcher import KANDINSKY_CONFIGS
         config_data = KANDINSKY_CONFIGS[variant]
         
@@ -47,11 +49,12 @@ class KandinskyLoader(io.ComfyNode):
         conf = OmegaConf.load(config_path)
         handler = KandinskyModelHandler(conf, ckpt_path)
         patcher = KandinskyPatcher(
-            handler, 
+            handler,
             load_device=comfy.model_management.get_torch_device(),
             offload_device=comfy.model_management.unet_offload_device()
         )
         handler.conf.use_magcache = use_magcache
+        handler.conf.magcache_threshold = magcache_threshold
         return io.NodeOutput(patcher)
 
 

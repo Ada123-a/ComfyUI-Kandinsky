@@ -210,7 +210,9 @@ class KandinskySampler(io.ComfyNode):
 
         if use_magcache:
             if hasattr(conf, "magcache"):
-                set_magcache_params(diffusion_model, conf.magcache.mag_ratios, steps, conf.model.guidance_weight == 1.0)
+                threshold = conf.get('magcache_threshold', 0.08)
+                set_magcache_params(diffusion_model, conf.magcache.mag_ratios, steps,
+                                  conf.model.guidance_weight == 1.0, threshold=threshold)
             else:
                 print("Warning: use_magcache is True but no magcache config found")
         elif is_magcache_active:
