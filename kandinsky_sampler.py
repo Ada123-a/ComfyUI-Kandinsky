@@ -45,12 +45,22 @@ def get_velocity(
     guidance_weight,
     conf,
     sparse_params=None,
+    visual_cond=None,
+    visual_cond_mask=None,
 ):
     model_input = x
     if dit.visual_cond:
-        visual_cond_zeros = torch.zeros_like(x)
-        visual_cond_mask = torch.zeros([*x.shape[:-1], 1], dtype=x.dtype, device=x.device)
-        model_input = torch.cat([x, visual_cond_zeros, visual_cond_mask], dim=-1)
+        if visual_cond is not None and visual_cond_mask is not None:
+            F = x.shape[0]
+            visual_cond_input = torch.zeros_like(x)
+            visual_cond_input[0:1] = visual_cond.to(dtype=x.dtype)
+
+            visual_cond_mask_input = visual_cond_mask.to(dtype=x.dtype)
+        else:
+            visual_cond_input = torch.zeros_like(x)
+            visual_cond_mask_input = torch.zeros([*x.shape[:-1], 1], dtype=x.dtype, device=x.device)
+
+        model_input = torch.cat([x, visual_cond_input, visual_cond_mask_input], dim=-1)
 
     pred_velocity = dit(
         model_input,
@@ -93,7 +103,9 @@ def generate(
     scheduler_scale,
     conf,
     seed,
-    pbar
+    pbar,
+    visual_cond=None,
+    visual_cond_mask=None,
 ):
     g = torch.Generator(device=device)
     g.manual_seed(seed)
@@ -103,6 +115,10 @@ def generate(
 
     if torch.isnan(current_latent).any() or torch.isinf(current_latent).any():
         current_latent = torch.randn(shape, device=device, dtype=model_dtype)
+
+    if visual_cond is not None and visual_cond_mask is not None:
+        visual_cond_typed = visual_cond.to(dtype=model_dtype)
+        current_latent[0:1] = 0.7 * visual_cond_typed + 0.3 * current_latent[0:1]
 
     sparse_params = get_sparse_params(conf, shape, device)
 
@@ -125,7 +141,9 @@ def generate(
             null_text_rope_pos,
             cfg,
             conf,
-            sparse_params=sparse_params
+            sparse_params=sparse_params,
+            visual_cond=visual_cond,
+            visual_cond_mask=visual_cond_mask,
         )
 
         if torch.isnan(pred_velocity).any() or torch.isinf(pred_velocity).any():
@@ -182,21 +200,27 @@ class KandinskySampler(io.ComfyNode):
 
         latent = latent_image["samples"].to(device)
         B, C, F, H, W = latent.shape
-        
+
+        visual_cond = None
+        visual_cond_mask = None
+        if "visual_cond" in latent_image and "visual_cond_mask" in latent_image:
+            visual_cond = latent_image["visual_cond"].to(device=device, dtype=model_dtype)
+            visual_cond_mask = latent_image["visual_cond_mask"].to(device=device, dtype=model_dtype)
+
         pos_cond = positive[0][1].get("kandinsky_embeds")
         neg_cond = negative[0][1].get("kandinsky_embeds")
-        
+
         for key in pos_cond:
             pos_cond[key] = pos_cond[key].to(device=device, dtype=model_dtype)
             neg_cond[key] = neg_cond[key].to(device=device, dtype=model_dtype)
-            
+
         patch_size = conf.model.dit_params.patch_size
         visual_rope_pos = [
             torch.arange(F // patch_size[0], device=device),
             torch.arange(H // patch_size[1], device=device),
             torch.arange(W // patch_size[2], device=device)
         ]
-        
+
         text_rope_pos = torch.arange(pos_cond["text_embeds"].shape[0], device=device)
         null_text_rope_pos = torch.arange(neg_cond["text_embeds"].shape[0], device=device)
 
@@ -205,21 +229,29 @@ class KandinskySampler(io.ComfyNode):
         for i in range(B):
             current_seed = seed + i
 
+            batch_visual_cond = None
+            batch_visual_cond_mask = None
+            if visual_cond is not None and visual_cond_mask is not None:
+                batch_visual_cond = visual_cond[i].permute(1, 2, 3, 0)
+                batch_visual_cond_mask = visual_cond_mask[i]
+
             final_latent_unbatched = generate(
-                diffusion_model, 
-                device, 
-                (F, H, W, C), 
-                steps, 
-                pos_cond, 
+                diffusion_model,
+                device,
+                (F, H, W, C),
+                steps,
+                pos_cond,
                 neg_cond,
-                visual_rope_pos, 
-                text_rope_pos, 
+                visual_rope_pos,
+                text_rope_pos,
                 null_text_rope_pos,
-                cfg, 
-                scheduler_scale, 
+                cfg,
+                scheduler_scale,
                 conf,
                 current_seed,
-                pbar
+                pbar,
+                visual_cond=batch_visual_cond,
+                visual_cond_mask=batch_visual_cond_mask,
             )
             output_latents.append(final_latent_unbatched.permute(3, 0, 1, 2))
 

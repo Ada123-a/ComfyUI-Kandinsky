@@ -150,6 +150,86 @@ class EmptyKandinskyLatent(io.ComfyNode):
         else:
             num_frames = int(time_length * 24)
             latent_frames = (num_frames - 1) // 4 + 1
-        
+
         latent = torch.zeros([batch_size, 16, latent_frames, height // 8, width // 8], device=comfy.model_management.intermediate_device())
         return io.NodeOutput({"samples": latent})
+
+
+class KandinskyImageToVideoLatent(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="KandinskyV5_ImageToVideoLatent",
+            display_name="Kandinsky 5 Image to Video Latent",
+            category="Kandinsky",
+            description="Encodes an image for image-to-video generation with Kandinsky-5.",
+            inputs=[
+                io.Vae.Input("vae", tooltip="The Kandinsky VAE from the VAE Loader."),
+                io.Image.Input("image", tooltip="Input image to condition the video generation."),
+                io.Float.Input("time_length", default=5.0, min=0.1, max=30.0, step=0.1, tooltip="Time in seconds for the output video."),
+                io.Int.Input("batch_size", default=1, min=1, max=64),
+            ],
+            outputs=[io.Latent.Output()],
+        )
+
+    @classmethod
+    def execute(cls, vae, image, time_length, batch_size) -> io.NodeOutput:
+        device = comfy.model_management.get_torch_device()
+
+        image = image.to(device)
+
+        image = image.permute(0, 3, 1, 2)
+
+        B, C, H, W = image.shape
+
+        image = image.unsqueeze(2)
+
+        with torch.no_grad():
+            image_scaled = image * 2.0 - 1.0
+
+            vae_model = vae.first_stage_model
+            vae_model = vae_model.to(device)
+
+            vae_dtype = next(vae_model.parameters()).dtype
+            image_scaled = image_scaled.to(dtype=vae_dtype)
+
+            encoded = vae_model.encode(image_scaled)
+
+            if hasattr(encoded, 'latent_dist'):
+                image_latent = encoded.latent_dist.mode()
+            elif hasattr(encoded, 'sample'):
+                image_latent = encoded.sample
+            else:
+                image_latent = encoded
+
+            scaling_factor = 0.476986
+            image_latent = image_latent * scaling_factor
+
+        num_frames = int(time_length * 24)
+        latent_frames = (num_frames - 1) // 4 + 1
+
+        _, C_latent, _, H_latent, W_latent = image_latent.shape
+
+        video_latent = torch.zeros(
+            [batch_size, C_latent, latent_frames, H_latent, W_latent],
+            device=comfy.model_management.intermediate_device(),
+            dtype=image_latent.dtype
+        )
+
+        if image_latent.shape[0] == 1 and batch_size > 1:
+            image_latent = image_latent.repeat(batch_size, 1, 1, 1, 1)
+
+        visual_cond_mask = torch.zeros(
+            [batch_size, latent_frames, H_latent, W_latent, 1],
+            device=comfy.model_management.intermediate_device(),
+            dtype=image_latent.dtype
+        )
+        visual_cond_mask[:, 0:1, :, :, :] = 1.0
+
+        image_latent = image_latent.to(comfy.model_management.intermediate_device())
+
+        return io.NodeOutput({
+            "samples": video_latent,
+            "visual_cond": image_latent,
+            "visual_cond_mask": visual_cond_mask
+        })
