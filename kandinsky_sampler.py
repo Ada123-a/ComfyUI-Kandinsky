@@ -116,10 +116,6 @@ def generate(
     if torch.isnan(current_latent).any() or torch.isinf(current_latent).any():
         current_latent = torch.randn(shape, device=device, dtype=model_dtype)
 
-    if visual_cond is not None and visual_cond_mask is not None:
-        visual_cond_typed = visual_cond.to(dtype=model_dtype)
-        current_latent[0:1] = 0.7 * visual_cond_typed + 0.3 * current_latent[0:1]
-
     sparse_params = get_sparse_params(conf, shape, device)
 
     timesteps = torch.linspace(1.0, 0.0, steps + 1, device=device, dtype=model_dtype)
