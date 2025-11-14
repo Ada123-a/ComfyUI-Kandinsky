@@ -15,7 +15,12 @@ def nearest_interp(src_array, target_length):
 
 def set_magcache_params(dit, mag_ratios, num_steps, no_cfg):
     print(f'using Magcache')
+
+    if not hasattr(dit.__class__, '_original_forward'):
+        dit.__class__._original_forward = dit.__class__.forward
+
     dit.__class__.forward = magcache_forward
+
     dit.cnt = 0
     dit.num_steps = num_steps * 2
     dit.magcache_thresh = 0.12
@@ -27,6 +32,7 @@ def set_magcache_params(dit, mag_ratios, num_steps, no_cfg):
     dit.residual_cache = [None, None]
     dit.mag_ratios = np.array([1.0]*2 + mag_ratios)
     dit.no_cfg = no_cfg
+    dit._magcache_enabled = True
 
     if len(dit.mag_ratios) != num_steps * 2:
         print(f'interpolate MAG RATIOS: curr len {len(dit.mag_ratios)}')
@@ -35,6 +41,24 @@ def set_magcache_params(dit, mag_ratios, num_steps, no_cfg):
         interpolated_mag_ratios = np.concatenate(
             [mag_ratio_con.reshape(-1, 1), mag_ratio_ucon.reshape(-1, 1)], axis=1).reshape(-1)
         dit.mag_ratios = interpolated_mag_ratios
+
+
+def disable_magcache(dit):
+    print('disabling Magcache')
+
+    if hasattr(dit.__class__, '_original_forward'):
+        dit.__class__.forward = dit.__class__._original_forward
+
+    magcache_attrs = [
+        'cnt', 'num_steps', 'magcache_thresh', 'K',
+        'accumulated_err', 'accumulated_steps', 'accumulated_ratio',
+        'retention_ratio', 'residual_cache', 'mag_ratios',
+        'no_cfg', '_magcache_enabled'
+    ]
+
+    for attr in magcache_attrs:
+        if hasattr(dit, attr):
+            delattr(dit, attr)
 
 
 @torch.compile(mode="max-autotune-no-cudagraphs")

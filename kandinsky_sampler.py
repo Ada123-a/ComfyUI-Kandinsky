@@ -5,7 +5,7 @@ from comfy_api.latest import io
 import comfy.utils
 import comfy.model_management
 
-from .src.kandinsky.magcache_utils import set_magcache_params
+from .src.kandinsky.magcache_utils import set_magcache_params, disable_magcache
 from .src.kandinsky.models.utils import fast_sta_nabla
 from .src.kandinsky.models.nn import set_sage_attention
 
@@ -205,9 +205,16 @@ class KandinskySampler(io.ComfyNode):
         device = patcher.load_device
         model_dtype = next(diffusion_model.parameters()).dtype
 
-        if conf.get('use_magcache', False):
+        use_magcache = conf.get('use_magcache', False)
+        is_magcache_active = hasattr(diffusion_model, '_magcache_enabled') and diffusion_model._magcache_enabled
+
+        if use_magcache:
             if hasattr(conf, "magcache"):
                 set_magcache_params(diffusion_model, conf.magcache.mag_ratios, steps, conf.model.guidance_weight == 1.0)
+            else:
+                print("Warning: use_magcache is True but no magcache config found")
+        elif is_magcache_active:
+            disable_magcache(diffusion_model)
 
         latent = latent_image["samples"].to(device)
         B, C, F, H, W = latent.shape
