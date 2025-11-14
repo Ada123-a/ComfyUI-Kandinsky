@@ -62,7 +62,7 @@ def get_velocity(
         scale_factor=conf.metrics.scale_factor,
         sparse_params=sparse_params,
     )
-    
+
     if abs(guidance_weight - 1.0) > 1e-6:
         uncond_pred_velocity = dit(
             model_input,
@@ -74,43 +74,46 @@ def get_velocity(
             scale_factor=conf.metrics.scale_factor,
             sparse_params=sparse_params,
         )
-        pred_velocity = uncond_pred_velocity + guidance_weight * (pred_velocity - uncond_pred_velocity)
-        
+        pred_velocity = torch.lerp(uncond_pred_velocity, pred_velocity, guidance_weight)
+
     return pred_velocity
 
 @torch.no_grad()
 def generate(
-    diffusion_model, 
-    device, 
-    shape, 
-    steps, 
-    text_embed, 
+    diffusion_model,
+    device,
+    shape,
+    steps,
+    text_embed,
     null_embed,
-    visual_rope_pos, 
-    text_rope_pos, 
+    visual_rope_pos,
+    text_rope_pos,
     null_text_rope_pos,
-    cfg, 
-    scheduler_scale, 
+    cfg,
+    scheduler_scale,
     conf,
     seed,
     pbar
 ):
     g = torch.Generator(device=device)
     g.manual_seed(seed)
-    
+
     model_dtype = next(diffusion_model.parameters()).dtype
     current_latent = torch.randn(shape, generator=g, device=device, dtype=model_dtype)
-    
+
+    if torch.isnan(current_latent).any() or torch.isinf(current_latent).any():
+        current_latent = torch.randn(shape, device=device, dtype=model_dtype)
+
     sparse_params = get_sparse_params(conf, shape, device)
 
     timesteps = torch.linspace(1.0, 0.0, steps + 1, device=device, dtype=model_dtype)
     timesteps = scheduler_scale * timesteps / (1 + (scheduler_scale - 1) * timesteps)
-    
+
     for i in range(steps):
         t_now = timesteps[i]
         t_next = timesteps[i+1]
         dt = t_next - t_now
-        
+
         pred_velocity = get_velocity(
             diffusion_model,
             current_latent,
@@ -124,10 +127,18 @@ def generate(
             conf,
             sparse_params=sparse_params
         )
-        
+
+        if torch.isnan(pred_velocity).any() or torch.isinf(pred_velocity).any():
+            pred_velocity = torch.nan_to_num(pred_velocity, nan=0.0, posinf=0.0, neginf=0.0)
+
         current_latent = current_latent + dt * pred_velocity
+        current_latent = torch.clamp(current_latent, min=-10.0, max=10.0)
+
+        if torch.isnan(current_latent).any() or torch.isinf(current_latent).any():
+            current_latent = torch.nan_to_num(current_latent, nan=0.0, posinf=0.0, neginf=0.0)
+
         pbar.update(1)
-    
+
     return current_latent
 
 class KandinskySampler(io.ComfyNode):
@@ -214,7 +225,13 @@ class KandinskySampler(io.ComfyNode):
 
         final_latents = torch.stack(output_latents, dim=0)
 
+        if torch.isnan(final_latents).any() or torch.isinf(final_latents).any():
+            final_latents = torch.nan_to_num(final_latents, nan=0.0, posinf=0.0, neginf=0.0)
+
         scaling_factor = 0.476986
         scaled_latents = final_latents / scaling_factor
+
+        if torch.isnan(scaled_latents).any() or torch.isinf(scaled_latents).any():
+            scaled_latents = torch.nan_to_num(scaled_latents, nan=0.0, posinf=0.0, neginf=0.0)
 
         return io.NodeOutput({"samples": scaled_latents.to(comfy.model_management.intermediate_device())})
