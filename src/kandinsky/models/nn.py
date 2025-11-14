@@ -7,7 +7,16 @@ from torch.nn.attention.flex_attention import flex_attention
 
 from .utils import get_freqs, nablaT_v2
 
-if torch.cuda.get_device_capability()[0] >= 9:        
+USE_SAGE_ATTENTION = False
+
+try:
+    from sageattention import sageattn
+    SAGE_AVAILABLE = True
+except ImportError:
+    SAGE_AVAILABLE = False
+    sageattn = None
+
+if torch.cuda.get_device_capability()[0] >= 9:
     try:
         from flash_attn import flash_attn_func as FA
         print("FlashAttention 2 is found")
@@ -45,6 +54,33 @@ def sdpa(q, k, v):
 if FA is None:
     print("FlashAttention is not found. Using SDPA instead.")
     FA = sdpa
+
+def sage_attn(q, k, v):
+    q = q.contiguous()
+    k = k.contiguous()
+    v = v.contiguous()
+
+    try:
+        if q.dtype not in [torch.float16, torch.bfloat16]:
+            original_dtype = q.dtype
+            q = q.to(torch.bfloat16)
+            k = k.to(torch.bfloat16)
+            v = v.to(torch.bfloat16)
+            out = sageattn(q, k, v, tensor_layout="NHD")
+            out = out.to(original_dtype)
+        else:
+            out = sageattn(q, k, v, tensor_layout="NHD")
+    except Exception:
+        out = FA(q=q, k=k, v=v)
+
+    return out
+
+def set_sage_attention(enabled: bool):
+    global USE_SAGE_ATTENTION
+    if enabled and not SAGE_AVAILABLE:
+        USE_SAGE_ATTENTION = False
+    else:
+        USE_SAGE_ATTENTION = enabled
 
 def apply_scale_shift_norm(norm, x, scale, shift):
     return (norm(x) * (scale + 1.0) + shift).to(x.dtype)
@@ -212,7 +248,10 @@ class MultiheadSelfAttentionEnc(nn.Module):
         return q, k
 
     def scaled_dot_product_attention(self, query, key, value):
-        out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+        if USE_SAGE_ATTENTION and SAGE_AVAILABLE:
+            out = sage_attn(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+        else:
+            out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         return out
 
     def out_l(self, x):
@@ -261,7 +300,10 @@ class MultiheadSelfAttentionDec(nn.Module):
         return q, k
 
     def attention(self, query, key, value):
-        out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+        if USE_SAGE_ATTENTION and SAGE_AVAILABLE:
+            out = sage_attn(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+        else:
+            out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         return out
 
     def nabla(self, query, key, value, sparse_params=None):
@@ -338,7 +380,10 @@ class MultiheadCrossAttention(nn.Module):
         return q, k
 
     def attention(self, query, key, value):
-        out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+        if USE_SAGE_ATTENTION and SAGE_AVAILABLE:
+            out = sage_attn(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+        else:
+            out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         return out
 
     def out_l(self, x):

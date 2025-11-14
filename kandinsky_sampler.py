@@ -7,6 +7,7 @@ import comfy.model_management
 
 from .src.kandinsky.magcache_utils import set_magcache_params
 from .src.kandinsky.models.utils import fast_sta_nabla
+from .src.kandinsky.models.nn import set_sage_attention
 
 @torch.no_grad()
 def get_sparse_params(conf, batch_shape, device):
@@ -143,6 +144,7 @@ class KandinskySampler(io.ComfyNode):
                 io.Int.Input("steps", default=50, min=1, max=200, tooltip="Number of sampling steps."),
                 io.Float.Input("cfg", default=5.0, min=1.0, max=20.0, step=0.1),
                 io.Float.Input("scheduler_scale", default=5.0, min=1.0, max=20.0, step=0.1),
+                io.Boolean.Input("use_sage_attention", default=False, tooltip="Enable SageAttention for faster inference with lower memory usage."),
                 io.Conditioning.Input("positive", tooltip="Positive conditioning from Kandinsky 5 Text Encode."),
                 io.Conditioning.Input("negative", tooltip="Negative conditioning from Kandinsky 5 Text Encode."),
                 io.Latent.Input("latent_image", tooltip="Empty latent from Empty Kandinsky 5 Latent."),
@@ -152,9 +154,10 @@ class KandinskySampler(io.ComfyNode):
 
     @classmethod
     @torch.no_grad()
-    def execute(cls, model, seed, steps, cfg, scheduler_scale, positive, negative, latent_image) -> io.NodeOutput:
+    def execute(cls, model, seed, steps, cfg, scheduler_scale, use_sage_attention, positive, negative, latent_image) -> io.NodeOutput:
         patcher = model
-        
+        set_sage_attention(use_sage_attention)
+
         comfy.model_management.load_model_gpu(patcher)
         k_handler = patcher.model
         diffusion_model = k_handler.diffusion_model
