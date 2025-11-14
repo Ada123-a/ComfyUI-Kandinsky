@@ -3,7 +3,7 @@ from typing_extensions import override
 from comfy_api.latest import ComfyExtension, io
 
 
-from .nodes import KandinskyLoader, KandinskyTextEncode, EmptyKandinskyLatent, KandinskyImageToVideoLatent
+from .nodes import KandinskyLoader, KandinskyTextEncode, EmptyKandinskyLatent, KandinskyImageToVideoLatent, KandinskyPruneFrames
 from .kandinsky_sampler import KandinskySampler
 
 class KandinskyV5Extension(ComfyExtension):
@@ -15,6 +15,7 @@ class KandinskyV5Extension(ComfyExtension):
             EmptyKandinskyLatent,
             KandinskyImageToVideoLatent,
             KandinskySampler,
+            KandinskyPruneFrames,
         ]
 
 async def comfy_entrypoint() -> KandinskyV5Extension:

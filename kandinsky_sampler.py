@@ -116,6 +116,13 @@ def generate(
     if torch.isnan(current_latent).any() or torch.isinf(current_latent).any():
         current_latent = torch.randn(shape, device=device, dtype=model_dtype)
 
+    # Softer initialization for image-to-video to reduce jitter
+    if visual_cond is not None and visual_cond_mask is not None:
+        if visual_cond_mask[0].sum() > 0:
+            visual_cond_typed = visual_cond.to(dtype=model_dtype)
+            # Blend 85% visual conditioning with 15% noise for smoother temporal transitions
+            current_latent[0:1] = 0.85 * visual_cond_typed + 0.15 * current_latent[0:1]
+
     sparse_params = get_sparse_params(conf, shape, device)
 
     timesteps = torch.linspace(1.0, 0.0, steps + 1, device=device, dtype=model_dtype)

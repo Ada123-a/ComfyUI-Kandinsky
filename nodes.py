@@ -174,13 +174,22 @@ class KandinskyImageToVideoLatent(io.ComfyNode):
 
     @classmethod
     def execute(cls, vae, image, time_length, batch_size) -> io.NodeOutput:
+        from math import floor, sqrt
+
         device = comfy.model_management.get_torch_device()
 
-        image = image.to(device)
+        image = image.permute(0, 3, 1, 2).to(device)
 
-        image = image.permute(0, 3, 1, 2)
-
+        MAX_AREA = 768 * 512
         B, C, H, W = image.shape
+        area = H * W
+        k = sqrt(MAX_AREA / area) / 16
+        new_h = int(floor(H * k) * 16)
+        new_w = int(floor(W * k) * 16)
+
+        if new_h != H or new_w != W:
+            import torch.nn.functional as F_torch
+            image = F_torch.interpolate(image, size=(new_h, new_w), mode='bilinear', align_corners=False)
 
         image = image.unsqueeze(2)
 
@@ -193,7 +202,23 @@ class KandinskyImageToVideoLatent(io.ComfyNode):
             vae_dtype = next(vae_model.parameters()).dtype
             image_scaled = image_scaled.to(dtype=vae_dtype)
 
-            encoded = vae_model.encode(image_scaled)
+            original_use_tiling = getattr(vae_model, 'use_tiling', None)
+            original_use_framewise = getattr(vae_model, 'use_framewise_encoding', None)
+
+            if hasattr(vae_model, 'use_tiling'):
+                vae_model.use_tiling = False
+            if hasattr(vae_model, 'use_framewise_encoding'):
+                vae_model.use_framewise_encoding = False
+
+            try:
+                encoded = vae_model.encode(image_scaled, opt_tiling=False)
+            except TypeError:
+                encoded = vae_model.encode(image_scaled)
+
+            if original_use_tiling is not None:
+                vae_model.use_tiling = original_use_tiling
+            if original_use_framewise is not None:
+                vae_model.use_framewise_encoding = original_use_framewise
 
             if hasattr(encoded, 'latent_dist'):
                 image_latent = encoded.latent_dist.mode()
@@ -233,3 +258,34 @@ class KandinskyImageToVideoLatent(io.ComfyNode):
             "visual_cond": image_latent,
             "visual_cond_mask": visual_cond_mask
         })
+
+
+class KandinskyPruneFrames(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="KandinskyV5_PruneFrames",
+            display_name="Kandinsky 5 Prune Frames",
+            category="Kandinsky",
+            description="Remove frames from the start or end of a video batch.",
+            inputs=[
+                io.Image.Input("images", tooltip="Video frames to prune."),
+                io.Int.Input("prune_start", default=0, min=0, max=100, tooltip="Number of frames to remove from the start."),
+                io.Int.Input("prune_end", default=0, min=0, max=100, tooltip="Number of frames to remove from the end."),
+            ],
+            outputs=[io.Image.Output()],
+        )
+
+    @classmethod
+    def execute(cls, images, prune_start, prune_end) -> io.NodeOutput:
+        total_frames = images.shape[0]
+
+        if prune_start + prune_end >= total_frames:
+            raise ValueError(f"Cannot prune {prune_start + prune_end} frames from a video with {total_frames} frames. Must leave at least 1 frame.")
+
+        start_idx = prune_start
+        end_idx = total_frames - prune_end if prune_end > 0 else total_frames
+
+        pruned_images = images[start_idx:end_idx]
+
+        return io.NodeOutput(pruned_images)
