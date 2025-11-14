@@ -97,58 +97,6 @@
       "bgcolor": "#335"
     },
     {
-      "id": 31,
-      "type": "CreateVideo",
-      "pos": [
-        -1259.5691162109376,
-        -961.8018447875977
-      ],
-      "size": [
-        270,
-        78
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 2,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "name": "audio",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.45",
-        "Node name for S&R": "CreateVideo",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "fps": true
-          },
-          "version": "7.2.2",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        24
-      ]
-    },
-    {
       "id": 41,
       "type": "VAEDecode",
       "pos": [
@@ -162,7 +110,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 13,
+      "order": 12,
       "mode": 4,
       "inputs": [
         {
@@ -207,7 +155,7 @@
         130
       ],
       "flags": {},
-      "order": 3,
+      "order": 2,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -254,7 +202,7 @@
         102
       ],
       "flags": {},
-      "order": 10,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -300,7 +248,7 @@
         336
       ],
       "flags": {},
-      "order": 9,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -368,7 +316,7 @@
         314
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -407,7 +355,7 @@
         430
       ],
       "flags": {},
-      "order": 8,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -461,6 +409,220 @@
       "bgcolor": "#353"
     },
     {
+      "id": 8,
+      "type": "VAELoader",
+      "pos": [
+        -2310.3759765625,
+        -783.9967651367188
+      ],
+      "size": [
+        350.65509033203125,
+        58
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            58,
+            64,
+            73
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "vae_name": true
+          },
+          "version": "7.2.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "hunyuan_video_vae_bf16.safetensors"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 11,
+      "type": "KandinskyV5_Loader",
+      "pos": [
+        -2310.3759765625,
+        -920
+      ],
+      "size": [
+        350,
+        82
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "wildminder/ComfyUI-Kandinsky",
+        "ver": "52b747720d7c6ab7c00be0af69228c78df8d8d01",
+        "Node name for S&R": "KandinskyV5_Loader",
+        "cnr_id": "ComfyUI-Kandinsky",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "variant": true,
+            "use_magcache": true
+          },
+          "version": "7.2.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "i2v_5s",
+        true
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 42,
+      "type": "MarkdownNote",
+      "pos": [
+        -2830,
+        -960
+      ],
+      "size": [
+        480,
+        750
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Model Links",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "[Tutorial](https://github.com/wildminder/ComfyUI-Kandinsky\n)\n\n**Diffusion Model**\n\n| Model                               | Config Name              | Duration | Hugging Face Link |\n|:------------------------------------|:-------------------------|:--------:|:------------------|\n| Kandinsky SFT 5s       | `config_5s_sft.yaml`     | 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-sft-5s/tree/main/model) |\n| Kandinsky SFT 10s      | `config_10s_sft.yaml`    | 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-sft-10s/tree/main/model) |\n| Kandinsky pretrain 5s  | `config_5s_pretrain.yaml`| 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-pretrain-5s/tree/main/model) |\n| Kandinsky pretrain 10s | `config_10s_pretrain.yaml`| 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-pretrain-10s/tree/main/model) |\n| Kandinsky no-CFG 5s    | `config_5s_nocfg.yaml`   | 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-nocfg-5s/tree/main/model) |\n| Kandinsky no-CFG 10s   | `config_10s_nocfg.yaml`  | 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-nocfg-10s/tree/main/model) |\n| Kandinsky distill 5s   | `config_5s_distil.yaml`  | 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-distilled16steps-5s/tree/main/model) |\n| Kandinsky distill 10s  | `config_10s_distil.yaml` | 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-distilled16steps-10s/tree/main/model) |\n| Kandinsky i2v 5s  | `config_5s_sft.yaml` | 5s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-I2V-Lite-5s/resolve/main/model/kandinsky5lite_i2v_5s.safetensors) |\n\n\n**VAE**\n- [hunyuan_video_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors)\n\n**Text Encoder**   \n- [clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14/tree/main)\n- [qwen_2.5_vl_7b_fp8_scaled.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors)\nFile save location\n\n```\nComfyUI/\n├───📂 models/\n│   ├───📂 diffusion_models/\n│   │   └─── kandinsky5lite_t2v_sft_5s.safetensors\n│   ├───📂 text_encoders/\n│   │   ├─── clip-vit-large-patch14\n│   │   └─── qwen_2.5_vl_7b_fp8_scaled.safetensors \n│   └───📂 vae/\n│       └── hunyuan_vae.safetensors\n```"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 39,
+      "type": "VAEDecodeTiled",
+      "pos": [
+        -1522.6683393693227,
+        -870.3966665311955
+      ],
+      "size": [
+        270,
+        150
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 57
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            74
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.65",
+        "Node name for S&R": "VAEDecodeTiled",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.2.2"
+        }
+      },
+      "widgets_values": [
+        128,
+        32,
+        32,
+        4
+      ]
+    },
+    {
+      "id": 50,
+      "type": "KandinskyV5_PruneFrames",
+      "pos": [
+        -1227.1266541055156,
+        -811.2644835538943
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 74
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            75
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "Ada123-a/ComfyUI-Kandinsky",
+        "ver": "67806d74f6715a1ccb9f59c5b521d9563fb58a12",
+        "Node name for S&R": "KandinskyV5_PruneFrames"
+      },
+      "widgets_values": [
+        5,
+        0
+      ]
+    },
+    {
       "id": 43,
       "type": "VHS_VideoCombine",
       "pos": [
@@ -472,7 +634,7 @@
         720.1019698844789
       ],
       "flags": {},
-      "order": 15,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
@@ -526,13 +688,13 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "AnimateDiff_00061.mp4",
+            "filename": "AnimateDiff_00077.mp4",
             "subfolder": "",
             "type": "output",
             "format": "video/nvenc_h264-mp4",
             "frame_rate": 24,
-            "workflow": "AnimateDiff_00061.png",
-            "fullpath": "/home/ada/AI/ComfyUI/output/AnimateDiff_00061.mp4"
+            "workflow": "AnimateDiff_00077.png",
+            "fullpath": "/home/ada/AI/ComfyUI/output/AnimateDiff_00077.mp4"
           }
         }
       }
@@ -549,7 +711,7 @@
         238
       ],
       "flags": {},
-      "order": 11,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -600,226 +762,12 @@
         }
       },
       "widgets_values": [
-        196864619199359,
+        196864619199360,
         "fixed",
         50,
         3,
         5,
         true
-      ]
-    },
-    {
-      "id": 8,
-      "type": "VAELoader",
-      "pos": [
-        -2310.3759765625,
-        -783.9967651367188
-      ],
-      "size": [
-        350.65509033203125,
-        58
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "VAE",
-          "type": "VAE",
-          "slot_index": 0,
-          "links": [
-            58,
-            64,
-            73
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.18",
-        "Node name for S&R": "VAELoader",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "vae_name": true
-          },
-          "version": "7.2.2",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "hunyuan_video_vae_bf16.safetensors"
-      ],
-      "color": "#223",
-      "bgcolor": "#335"
-    },
-    {
-      "id": 11,
-      "type": "KandinskyV5_Loader",
-      "pos": [
-        -2310.3759765625,
-        -920
-      ],
-      "size": [
-        350,
-        82
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            18
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "wildminder/ComfyUI-Kandinsky",
-        "ver": "52b747720d7c6ab7c00be0af69228c78df8d8d01",
-        "Node name for S&R": "KandinskyV5_Loader",
-        "cnr_id": "ComfyUI-Kandinsky",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "variant": true,
-            "use_magcache": true
-          },
-          "version": "7.2.2",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "i2v_5s",
-        true
-      ],
-      "color": "#223",
-      "bgcolor": "#335"
-    },
-    {
-      "id": 42,
-      "type": "MarkdownNote",
-      "pos": [
-        -2830,
-        -960
-      ],
-      "size": [
-        480,
-        750
-      ],
-      "flags": {},
-      "order": 7,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Model Links",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "[Tutorial](https://github.com/wildminder/ComfyUI-Kandinsky\n)\n\n**Diffusion Model**\n\n| Model                               | Config Name              | Duration | Hugging Face Link |\n|:------------------------------------|:-------------------------|:--------:|:------------------|\n| Kandinsky SFT 5s       | `config_5s_sft.yaml`     | 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-sft-5s/tree/main/model) |\n| Kandinsky SFT 10s      | `config_10s_sft.yaml`    | 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-sft-10s/tree/main/model) |\n| Kandinsky pretrain 5s  | `config_5s_pretrain.yaml`| 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-pretrain-5s/tree/main/model) |\n| Kandinsky pretrain 10s | `config_10s_pretrain.yaml`| 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-pretrain-10s/tree/main/model) |\n| Kandinsky no-CFG 5s    | `config_5s_nocfg.yaml`   | 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-nocfg-5s/tree/main/model) |\n| Kandinsky no-CFG 10s   | `config_10s_nocfg.yaml`  | 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-nocfg-10s/tree/main/model) |\n| Kandinsky distill 5s   | `config_5s_distil.yaml`  | 5s       |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-distilled16steps-5s/tree/main/model) |\n| Kandinsky distill 10s  | `config_10s_distil.yaml` | 10s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-T2V-Lite-distilled16steps-10s/tree/main/model) |\n| Kandinsky i2v 5s  | `config_5s_sft.yaml` | 5s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-I2V-Lite-5s/resolve/main/model/kandinsky5lite_i2v_5s.safetensors) |\n\n\n**VAE**\n- [hunyuan_video_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors)\n\n**Text Encoder**   \n- [clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14/tree/main)\n- [qwen_2.5_vl_7b_fp8_scaled.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors)\nFile save location\n\n```\nComfyUI/\n├───📂 models/\n│   ├───📂 diffusion_models/\n│   │   └─── kandinsky5lite_t2v_sft_5s.safetensors\n│   ├───📂 text_encoders/\n│   │   ├─── clip-vit-large-patch14\n│   │   └─── qwen_2.5_vl_7b_fp8_scaled.safetensors \n│   └───📂 vae/\n│       └── hunyuan_vae.safetensors\n```"
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 39,
-      "type": "VAEDecodeTiled",
-      "pos": [
-        -1522.6683393693227,
-        -870.3966665311955
-      ],
-      "size": [
-        270,
-        150
-      ],
-      "flags": {
-        "collapsed": false
-      },
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 57
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 58
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            74
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.65",
-        "Node name for S&R": "VAEDecodeTiled",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.2.2"
-        }
-      },
-      "widgets_values": [
-        128,
-        32,
-        32,
-        4
-      ]
-    },
-    {
-      "id": 50,
-      "type": "KandinskyV5_PruneFrames",
-      "pos": [
-        -1227.1266541055156,
-        -811.2644835538943
-      ],
-      "size": [
-        270,
-        82
-      ],
-      "flags": {},
-      "order": 14,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 74
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            75
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "Ada123-a/ComfyUI-Kandinsky",
-        "ver": "67806d74f6715a1ccb9f59c5b521d9563fb58a12",
-        "Node name for S&R": "KandinskyV5_PruneFrames"
-      },
-      "widgets_values": [
-        5,
-        0
       ]
     }
   ],
@@ -976,10 +924,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7590696451625673,
+      "scale": 1.0103216977113814,
       "offset": [
-        2541.8369033580116,
-        1225.3935887476853
+        2159.476987619756,
+        659.2047457468224
       ]
     },
     "frontendVersion": "1.28.8",

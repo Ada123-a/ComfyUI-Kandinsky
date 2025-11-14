@@ -9,7 +9,7 @@ from .src.kandinsky.models.dit import DiffusionTransformer3D
 KANDINSKY_CONFIGS = {
     "sft_5s": {"config": "config_5s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_sft_5s.safetensors"},
     "sft_10s": {"config": "config_10s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_sft_10s.safetensors"},
-    "i2v_5s": {"config": "config_5s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_i2v_5s.safetensors"},
+    "i2v_5s": {"config": "config_5s_i2v.yaml", "ckpt": "kandinsky/kandinsky5lite_i2v_5s.safetensors"},
     "pretrain_5s": {"config": "config_5s_pretrain.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_pretrain_5s.safetensors"},
     "pretrain_10s": {"config": "config_10s_pretrain.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_pretrain_10s.safetensors"},
     "nocfg_5s": {"config": "config_5s_nocfg.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_nocfg_5s.safetensors"},
