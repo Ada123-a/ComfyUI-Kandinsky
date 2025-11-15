@@ -183,7 +183,7 @@ class KandinskySampler(io.ComfyNode):
                 io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True),
                 io.Int.Input("steps", default=50, min=1, max=200, tooltip="50, 16 for distilled version."),
                 io.Float.Input("cfg", default=5.0, min=1.0, max=20.0, step=0.1, tooltip="1.0 for distilled16steps and nocfg, 5.0 for sft and pretrain."),
-                io.Float.Input("scheduler_scale", default=1.0, min=1.0, max=20.0, step=0.1, "5.0 for 5s, 10.0 for 10s."),
+                io.Float.Input("scheduler_scale", default=1.0, min=1.0, max=20.0, step=0.1, tooltip="5.0 for 5s, 10.0 for 10s."),
                 io.Boolean.Input("use_sage_attention", default=False, tooltip="Enable SageAttention for faster inference with lower memory usage."),
                 io.Conditioning.Input("positive", tooltip="Positive conditioning from Kandinsky 5 Text Encode."),
                 io.Conditioning.Input("negative", tooltip="Negative conditioning from Kandinsky 5 Text Encode."),

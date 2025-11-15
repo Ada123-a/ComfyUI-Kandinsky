@@ -11,6 +11,7 @@ KANDINSKY_CONFIGS = {
     "sft_10s": {"config": "config_10s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_sft_10s.safetensors"},
     "i2v_5s": {"config": "config_5s_i2v.yaml", "ckpt": "kandinsky/kandinsky5lite_i2v_5s.safetensors"},
     "i2v_pro_20b": {"config": "config_5s_i2v_pro_20b.yaml", "ckpt": "kandinsky/kandinsky5_i2v_pro_sft_5s_20b.safetensors"},
+    "t2v_pro_20b": {"config": "config_5s_t2v_pro_20b.yaml", "ckpt": "kandinsky/kandinsky5Pro_t2v_sft_5s.safetensors"},
     "pretrain_5s": {"config": "config_5s_pretrain.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_pretrain_5s.safetensors"},
     "pretrain_10s": {"config": "config_10s_pretrain.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_pretrain_10s.safetensors"},
     "nocfg_5s": {"config": "config_5s_nocfg.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_nocfg_5s.safetensors"},
