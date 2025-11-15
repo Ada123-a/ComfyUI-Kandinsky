@@ -275,36 +275,6 @@
       "bgcolor": "#335"
     },
     {
-      "id": 42,
-      "type": "MarkdownNote",
-      "pos": [
-        -2821.1401849054505,
-        -952.7291037790164
-      ],
-      "size": [
-        480,
-        750
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Model Links",
-      "properties": {
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "[Tutorial](https://github.com/wildminder/ComfyUI-Kandinsky\n)\n\n**Diffusion Model**\n\n| Model                               | Config Name              | Duration | Hugging Face Link |\n|:------------------------------------|:-------------------------|:--------:|:------------------|\n| Kandinsky SFT 5s       | `config_5s_sft.yaml`     | 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-sft-5s/resolve/main/model/kandinsky5lite_t2v_sft_5s.safetensors) |\n| Kandinsky SFT 10s      | `config_10s_sft.yaml`    | 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-sft-10s/resolve/main/model/kandinsky5lite_t2v_sft_10s.safetensors) |\n| Kandinsky pretrain 5s  | `config_5s_pretrain.yaml`| 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-pretrain-5s/resolve/main/model/kandinsky5lite_t2v_pretrain_5s.safetensors) |\n| Kandinsky pretrain 10s | `config_10s_pretrain.yaml`| 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-pretrain-10s/resolve/main/model/kandinsky5lite_t2v_pretrain_10s.safetensors) |\n| Kandinsky no-CFG 5s    | `config_5s_nocfg.yaml`   | 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-nocfg-5s/resolve/main/model/kandinsky5lite_t2v_nocfg_5s.safetensors) |\n| Kandinsky no-CFG 10s   | `config_10s_nocfg.yaml`  | 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-nocfg-10s/resolve/main/model/kandinsky5lite_t2v_nocfg_10s.safetensors) |\n| Kandinsky distill 5s   | `config_5s_distil.yaml`  | 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-distilled16steps-5s/resolve/main/model/kandinsky5lite_t2v_distilled16steps_5s.safetensors) |\n| Kandinsky distill 10s  | `config_10s_distil.yaml` | 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-distilled16steps-10s/resolve/main/model/kandinsky5lite_t2v_distilled16steps_10s.safetensors) |\n| Kandinsky i2v 5s  | `config_5s_sft.yaml` | 5s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-I2V-Lite-5s/resolve/main/model/kandinsky5lite_i2v_5s.safetensors) |\n\n\n**VAE**\n- [hunyuan_video_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors)\n\n**Text Encoder**   \n- [clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors)\n- [qwen_2.5_vl_7b_fp8_scaled.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors)\nFile save location\n\n```\nComfyUI/\n├───📂 models/\n│   ├───📂 diffusion_models/\n│   │   └─── 📂 kandinsky/\n│   │         └───kandinsky_whatever.safetensors\n│   ├───📂 text_encoders/\n│   │   ├─── clip-vit-large-patch14\n│   │   └─── qwen_2.5_vl_7b_fp8_scaled.safetensors \n│   └───📂 vae/\n│       └── hunyuan_vae.safetensors\n```"
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
       "id": 13,
       "type": "EmptyKandinskyV5_Latent",
       "pos": [
@@ -316,7 +286,7 @@
         130
       ],
       "flags": {},
-      "order": 3,
+      "order": 2,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -363,7 +333,7 @@
         314
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -448,7 +418,7 @@
         58
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -654,53 +624,6 @@
       ]
     },
     {
-      "id": 11,
-      "type": "KandinskyV5_Loader",
-      "pos": [
-        -2309.1083468470797,
-        -889.4798791478305
-      ],
-      "size": [
-        345.9131615050942,
-        133.63116905824938
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            18
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "wildminder/ComfyUI-Kandinsky",
-        "ver": "52b747720d7c6ab7c00be0af69228c78df8d8d01",
-        "Node name for S&R": "KandinskyV5_Loader",
-        "cnr_id": "ComfyUI-Kandinsky",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "variant": true,
-            "use_magcache": true
-          },
-          "version": "7.2.2",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "i2v_5s",
-        true,
-        0.12,
-        0.2
-      ],
-      "color": "#223",
-      "bgcolor": "#335"
-    },
-    {
       "id": 14,
       "type": "KandinskyV5_Sampler",
       "pos": [
@@ -770,6 +693,85 @@
         5,
         true
       ]
+    },
+    {
+      "id": 11,
+      "type": "KandinskyV5_Loader",
+      "pos": [
+        -2309.1083468470797,
+        -889.4798791478305
+      ],
+      "size": [
+        345.9131615050942,
+        178
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "wildminder/ComfyUI-Kandinsky",
+        "ver": "52b747720d7c6ab7c00be0af69228c78df8d8d01",
+        "Node name for S&R": "KandinskyV5_Loader",
+        "cnr_id": "ComfyUI-Kandinsky",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "variant": true,
+            "use_magcache": true
+          },
+          "version": "7.2.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "i2v_5s",
+        "kandinsky/kandinsky5lite_i2v_5s.safetensors",
+        false,
+        0.08,
+        1,
+        "off"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 42,
+      "type": "MarkdownNote",
+      "pos": [
+        -2821.1401849054505,
+        -952.7291037790164
+      ],
+      "size": [
+        480,
+        750
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Model Links",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "[Tutorial](https://github.com/wildminder/ComfyUI-Kandinsky\n)\n\n**put the models in a folder named kandinsky in the diffusion_models folder**\n\n| Model                               | Config Name              | Duration | Hugging Face Link |\n|:------------------------------------|:-------------------------|:--------:|:------------------|\n| Kandinsky SFT 5s       | `config_5s_sft.yaml`     | 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-sft-5s/resolve/main/model/kandinsky5lite_t2v_sft_5s.safetensors) |\n| Kandinsky SFT 10s      | `config_10s_sft.yaml`    | 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-sft-10s/resolve/main/model/kandinsky5lite_t2v_sft_10s.safetensors) |\n| Kandinsky pretrain 5s  | `config_5s_pretrain.yaml`| 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-pretrain-5s/resolve/main/model/kandinsky5lite_t2v_pretrain_5s.safetensors) |\n| Kandinsky pretrain 10s | `config_10s_pretrain.yaml`| 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-pretrain-10s/resolve/main/model/kandinsky5lite_t2v_pretrain_10s.safetensors) |\n| Kandinsky no-CFG 5s    | `config_5s_nocfg.yaml`   | 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-nocfg-5s/resolve/main/model/kandinsky5lite_t2v_nocfg_5s.safetensors) |\n| Kandinsky no-CFG 10s   | `config_10s_nocfg.yaml`  | 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-nocfg-10s/resolve/main/model/kandinsky5lite_t2v_nocfg_10s.safetensors) |\n| Kandinsky distill 5s   | `config_5s_distil.yaml`  | 5s       |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-distilled16steps-5s/resolve/main/model/kandinsky5lite_t2v_distilled16steps_5s.safetensors) |\n| Kandinsky distill 10s  | `config_10s_distil.yaml` | 10s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Pro-sft-5s/resolve/main/model/kandinsky5pro_t2v_sft_5s.safetensors) |\n| Kandinsky t2v pro 5s  | `config_5s_t2v_pro_20b.yaml` | 5s      |🤗 [HF](https://huggingface.co/kandinskylab/Kandinsky-5.0-T2V-Lite-distilled16steps-10s/resolve/main/model/kandinsky5lite_t2v_distilled16steps_10s.safetensors) |\n| Kandinsky i2v 5s  | `config_5s_sft.yaml` | 5s      |🤗 [HF](https://huggingface.co/ai-forever/Kandinsky-5.0-I2V-Lite-5s/resolve/main/model/kandinsky5lite_i2v_5s.safetensors) |\n\nYou can also use [ggufs](https://huggingface.co/Ada321/Kandinsky-5.0-T2V-Pro-sft-5s-Q4_K_S.gguf/resolve/main/kandinsky5Pro_t2v_sft_5s-Q4_K_S.gguf) or pre-quanted fp8_scaled, just select them. For fp8 on_the_fly quants the full model into fp8, with_map used a pre-quanted weights if you select them and have a matching _scales.pt file.\n\n\n**VAE**\n- [hunyuan_video_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors)\n\n**Text Encoder**   \n- [clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors)\n- [qwen_2.5_vl_7b_fp8_scaled.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors)\nFile save location\n\n```\nComfyUI/\n├───📂 models/\n│   ├───📂 diffusion_models/\n│   │   └─── 📂 kandinsky/\n│   │         └───kandinsky_whatever.safetensors\n│   ├───📂 text_encoders/\n│   │   ├─── clip-vit-large-patch14\n│   │   └─── qwen_2.5_vl_7b_fp8_scaled.safetensors \n│   └───📂 vae/\n│       └── hunyuan_vae.safetensors\n```"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
     }
   ],
   "links": [
@@ -912,10 +914,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7590696451625755,
+      "scale": 0.834976609678833,
       "offset": [
-        2795.348341774955,
-        940.4931269114995
+        2938.77320382325,
+        1125.7087397733965
       ]
     },
     "frontendVersion": "1.28.8",

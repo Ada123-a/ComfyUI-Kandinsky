@@ -6,6 +6,8 @@ import logging
 import torch
 import gguf
 
+from .ops import GGMLTensor
+
 def get_orig_shape(reader, tensor_name):
     field_key = f"comfy.gguf.orig_shape.{tensor_name}"
     field = reader.get_field(field_key)
@@ -34,7 +36,6 @@ def load_gguf_state_dict(path):
     """
     reader = gguf.GGUFReader(path)
 
-    # Verify architecture
     arch_str = get_field(reader, "general.architecture", str)
     if arch_str != "wan":
         raise ValueError(f"Expected 'wan' architecture for Kandinsky GGUF, got '{arch_str}'")
@@ -47,34 +48,27 @@ def load_gguf_state_dict(path):
     for tensor in reader.tensors:
         tensor_name = tensor.name
 
-        # Load tensor data with mmap
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="The given NumPy array is not writable")
             torch_tensor = torch.from_numpy(tensor.data)
 
-        # Get original shape or reverse GGUF shape
         shape = get_orig_shape(reader, tensor_name)
         if shape is None:
             shape = torch.Size(tuple(int(v) for v in reversed(tensor.shape)))
 
-        # Handle quantized vs non-quantized tensors
-        if tensor.tensor_type in {gguf.GGMLQuantizationType.F32, gguf.GGMLQuantizationType.F16, gguf.GGMLQuantizationType.BF16}:
+            shape_list = list(shape)
+            while len(shape_list) > 2 and shape_list[0] == 1:
+                shape_list = shape_list[1:]
+            while len(shape_list) > 2 and shape_list[-1] == 1:
+                shape_list = shape_list[:-1]
+            shape = torch.Size(shape_list)
+
+        if tensor.tensor_type in {gguf.GGMLQuantizationType.F32, gguf.GGMLQuantizationType.F16}:
             torch_tensor = torch_tensor.view(*shape)
-            # Convert to appropriate dtype
-            if tensor.tensor_type == gguf.GGMLQuantizationType.F32:
-                torch_tensor = torch_tensor.float()
-            elif tensor.tensor_type == gguf.GGMLQuantizationType.F16:
-                torch_tensor = torch_tensor.half()
-            elif tensor.tensor_type == gguf.GGMLQuantizationType.BF16:
-                torch_tensor = torch_tensor.bfloat16()
+            state_dict[tensor_name] = torch_tensor
         else:
-            # For quantized tensors, we need to dequantize them
-            from .dequant import dequantize_tensor
-            torch_tensor = dequantize_tensor(torch_tensor, dtype=torch.float16)
+            state_dict[tensor_name] = GGMLTensor(torch_tensor, tensor_type=tensor.tensor_type, tensor_shape=shape)
 
-        state_dict[tensor_name] = torch_tensor
-
-        # Track tensor types
         tensor_type_str = getattr(tensor.tensor_type, "name", repr(tensor.tensor_type))
         qtype_dict[tensor_type_str] = qtype_dict.get(tensor_type_str, 0) + 1
 

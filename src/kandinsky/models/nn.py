@@ -97,30 +97,36 @@ def apply_rotary(x, rope):
 
 
 class TimeEmbeddings(nn.Module):
-    def __init__(self, model_dim, time_dim, max_period=10000.0):
+    def __init__(self, model_dim, time_dim, max_period=10000.0, operations=None):
         super().__init__()
+        if operations is None:
+            operations = nn
         assert model_dim % 2 == 0
         self.model_dim = model_dim
         self.max_period = max_period
         self.register_buffer(
             "freqs", get_freqs(model_dim // 2, max_period), persistent=False
         )
-        self.in_layer = nn.Linear(model_dim, time_dim, bias=True)
+        self.in_layer = operations.Linear(model_dim, time_dim, bias=True)
         self.activation = nn.SiLU()
-        self.out_layer = nn.Linear(time_dim, time_dim, bias=True)
+        self.out_layer = operations.Linear(time_dim, time_dim, bias=True)
 
     def forward(self, time):
         args = torch.outer(time, self.freqs.to(device=time.device))
         time_embed = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
-        time_embed = self.out_layer(self.activation(self.in_layer(time_embed.to(self.in_layer.weight.dtype))))
+        # Don't convert to weight.dtype for quantized weights (would be uint8)
+        # Let the layer's comfy_cast_weights handle dtype conversion
+        time_embed = self.out_layer(self.activation(self.in_layer(time_embed)))
         return time_embed
 
 
 class TextEmbeddings(nn.Module):
-    def __init__(self, text_dim, model_dim):
+    def __init__(self, text_dim, model_dim, operations=None):
         super().__init__()
-        self.in_layer = nn.Linear(text_dim, model_dim, bias=True)
-        self.norm = nn.LayerNorm(model_dim, elementwise_affine=True)
+        if operations is None:
+            operations = nn
+        self.in_layer = operations.Linear(text_dim, model_dim, bias=True)
+        self.norm = operations.LayerNorm(model_dim, elementwise_affine=True)
 
     def forward(self, text_embed):
         text_embed = self.in_layer(text_embed)
@@ -128,10 +134,12 @@ class TextEmbeddings(nn.Module):
 
 
 class VisualEmbeddings(nn.Module):
-    def __init__(self, visual_dim, model_dim, patch_size):
+    def __init__(self, visual_dim, model_dim, patch_size, operations=None):
         super().__init__()
+        if operations is None:
+            operations = nn
         self.patch_size = patch_size
-        self.in_layer = nn.Linear(math.prod(patch_size) * visual_dim, model_dim)
+        self.in_layer = operations.Linear(math.prod(patch_size) * visual_dim, model_dim)
 
     def forward(self, x):
         duration, height, width, dim = x.shape
@@ -206,30 +214,37 @@ class RoPE3D(nn.Module):
 
 
 class Modulation(nn.Module):
-    def __init__(self, time_dim, model_dim, num_params):
+    def __init__(self, time_dim, model_dim, num_params, operations=None):
         super().__init__()
+        if operations is None:
+            operations = nn
         self.activation = nn.SiLU()
-        self.out_layer = nn.Linear(time_dim, num_params * model_dim)
-        self.out_layer.weight.data.zero_()
-        self.out_layer.bias.data.zero_()
+        self.out_layer = operations.Linear(time_dim, num_params * model_dim)
+        # Only zero weights if they exist (GGMLOps doesn't initialize until load_state_dict)
+        if self.out_layer.weight is not None:
+            self.out_layer.weight.data.zero_()
+        if self.out_layer.bias is not None:
+            self.out_layer.bias.data.zero_()
 
     @torch.autocast(device_type="cuda", dtype=torch.float32)
     def forward(self, x):
         return self.out_layer(self.activation(x))
 
 class MultiheadSelfAttentionEnc(nn.Module):
-    def __init__(self, num_channels, head_dim):
+    def __init__(self, num_channels, head_dim, operations=None):
         super().__init__()
         assert num_channels % head_dim == 0
         self.num_heads = num_channels // head_dim
+        if operations is None:
+            operations = nn
 
-        self.to_query = nn.Linear(num_channels, num_channels, bias=True)
-        self.to_key = nn.Linear(num_channels, num_channels, bias=True)
-        self.to_value = nn.Linear(num_channels, num_channels, bias=True)
+        self.to_query = operations.Linear(num_channels, num_channels, bias=True)
+        self.to_key = operations.Linear(num_channels, num_channels, bias=True)
+        self.to_value = operations.Linear(num_channels, num_channels, bias=True)
         self.query_norm = nn.RMSNorm(head_dim)
         self.key_norm = nn.RMSNorm(head_dim)
 
-        self.out_layer = nn.Linear(num_channels, num_channels, bias=True)
+        self.out_layer = operations.Linear(num_channels, num_channels, bias=True)
 
     def get_qkv(self, x):
         query = self.to_query(x)
@@ -276,18 +291,20 @@ class MultiheadSelfAttentionEnc(nn.Module):
         return out
 
 class MultiheadSelfAttentionDec(nn.Module):
-    def __init__(self, num_channels, head_dim):
+    def __init__(self, num_channels, head_dim, operations=None):
         super().__init__()
         assert num_channels % head_dim == 0
         self.num_heads = num_channels // head_dim
+        if operations is None:
+            operations = nn
 
-        self.to_query = nn.Linear(num_channels, num_channels, bias=True)
-        self.to_key = nn.Linear(num_channels, num_channels, bias=True)
-        self.to_value = nn.Linear(num_channels, num_channels, bias=True)
+        self.to_query = operations.Linear(num_channels, num_channels, bias=True)
+        self.to_key = operations.Linear(num_channels, num_channels, bias=True)
+        self.to_value = operations.Linear(num_channels, num_channels, bias=True)
         self.query_norm = nn.RMSNorm(head_dim)
         self.key_norm = nn.RMSNorm(head_dim)
 
-        self.out_layer = nn.Linear(num_channels, num_channels, bias=True)
+        self.out_layer = operations.Linear(num_channels, num_channels, bias=True)
 
     def get_qkv(self, x):
         query = self.to_query(x)
@@ -362,18 +379,20 @@ class MultiheadSelfAttentionDec(nn.Module):
 
 
 class MultiheadCrossAttention(nn.Module):
-    def __init__(self, num_channels, head_dim):
+    def __init__(self, num_channels, head_dim, operations=None):
         super().__init__()
         assert num_channels % head_dim == 0
         self.num_heads = num_channels // head_dim
+        if operations is None:
+            operations = nn
 
-        self.to_query = nn.Linear(num_channels, num_channels, bias=True)
-        self.to_key = nn.Linear(num_channels, num_channels, bias=True)
-        self.to_value = nn.Linear(num_channels, num_channels, bias=True)
+        self.to_query = operations.Linear(num_channels, num_channels, bias=True)
+        self.to_key = operations.Linear(num_channels, num_channels, bias=True)
+        self.to_value = operations.Linear(num_channels, num_channels, bias=True)
         self.query_norm = nn.RMSNorm(head_dim)
         self.key_norm = nn.RMSNorm(head_dim)
 
-        self.out_layer = nn.Linear(num_channels, num_channels, bias=True)
+        self.out_layer = operations.Linear(num_channels, num_channels, bias=True)
 
     def get_qkv(self, x, cond):
         query = self.to_query(x)
@@ -418,23 +437,27 @@ class MultiheadCrossAttention(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, ff_dim):
+    def __init__(self, dim, ff_dim, operations=None):
         super().__init__()
-        self.in_layer = nn.Linear(dim, ff_dim, bias=False)
+        if operations is None:
+            operations = nn
+        self.in_layer = operations.Linear(dim, ff_dim, bias=False)
         self.activation = nn.GELU()
-        self.out_layer = nn.Linear(ff_dim, dim, bias=False)
+        self.out_layer = operations.Linear(ff_dim, dim, bias=False)
 
     def forward(self, x):
         return self.out_layer(self.activation(self.in_layer(x)))
 
 
 class OutLayer(nn.Module):
-    def __init__(self, model_dim, time_dim, visual_dim, patch_size):
+    def __init__(self, model_dim, time_dim, visual_dim, patch_size, operations=None):
         super().__init__()
         self.patch_size = patch_size
-        self.modulation = Modulation(time_dim, model_dim, 2)
-        self.norm = nn.LayerNorm(model_dim, elementwise_affine=False)
-        self.out_layer = nn.Linear(
+        if operations is None:
+            operations = nn
+        self.modulation = Modulation(time_dim, model_dim, 2, operations=operations)
+        self.norm = operations.LayerNorm(model_dim, elementwise_affine=False)
+        self.out_layer = operations.Linear(
             model_dim, math.prod(patch_size) * visual_dim, bias=True
         )
 

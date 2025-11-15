@@ -16,6 +16,15 @@ class KandinskyLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
         from .kandinsky_patcher import KANDINSKY_CONFIGS
+
+        if "diffusion_models" in folder_paths.folder_names_and_paths:
+            paths, extensions = folder_paths.folder_names_and_paths["diffusion_models"]
+            if '.gguf' not in extensions:
+                extensions.add('.gguf')
+                folder_paths.folder_names_and_paths["diffusion_models"] = (paths, extensions)
+
+        checkpoint_files = folder_paths.get_filename_list("diffusion_models")
+
         return io.Schema(
             node_id="KandinskyV5_Loader",
             display_name="Kandinsky 5 Loader",
@@ -23,21 +32,21 @@ class KandinskyLoader(io.ComfyNode):
             description="Loads a Kandinsky-5 text-to-video model variant.",
             inputs=[
                 io.Combo.Input("variant", options=list(KANDINSKY_CONFIGS.keys()), default="sft_5s"),
-                io.Combo.Input("model_format", options=["auto", "fp8", "gguf"], default="auto",
-                              tooltip="Model format: 'auto' = FP16/FP32/BF16, 'fp8' = FP8 quantization, 'gguf' = GGUF quantized models. fp8 and gguf cannot be used together."),
+                io.Combo.Input("checkpoint_file", options=checkpoint_files,
+                              tooltip="Select checkpoint file (.safetensors or .gguf) from diffusion_models folder. Leave at default to use the variant's default checkpoint."),
                 io.Boolean.Input("use_magcache", default=False, tooltip="Enable MagCache for faster inference."),
                 io.Float.Input("magcache_threshold", default=0.12, min=0.01, max=0.3, step=0.01,
                               tooltip="MagCache quality threshold. Lower = better quality, slower. Higher = faster, more artifacts."),
                 io.Int.Input("blocks_in_memory", default=0, min=1, max=60,
-                            tooltip="Block swapping. For 20B model: 24GB=1-2, 48GB=2-4. Its nearly 20B by itself, 1-2 blocks is about as much as you can do with 24GB"),
-                io.Combo.Input("fp8_mode", options=["on_the_fly", "with_map"], default="on_the_fly",
-                              tooltip="FP8 mode: 'on_the_fly' converts model to fp8, 'with_map' uses pre-converted FP8 model with _scales.pt file in same folder. Only used when model_format='fp8'."),
+                            tooltip="Block swapping. For 20B model: 24GB=1-3, 48GB=3-5."),
+                io.Combo.Input("fp8_mode", options=["off", "on_the_fly", "with_map"], default="off",
+                              tooltip="FP8 mode: 'off' = disabled, 'on_the_fly' = converts model to fp8, 'with_map' = uses pre-converted FP8 model with _scales.pt file. Only used with .safetensors files, not .gguf."),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
-    def execute(cls, variant: str, model_format: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int, fp8_mode: str) -> io.NodeOutput:
+    def execute(cls, variant: str, checkpoint_file: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int, fp8_mode: str) -> io.NodeOutput:
         from .kandinsky_patcher import KANDINSKY_CONFIGS
         config_data = KANDINSKY_CONFIGS[variant]
 
@@ -48,29 +57,24 @@ class KandinskyLoader(io.ComfyNode):
             raise FileNotFoundError(f"Config file not found at '{config_path}'.")
 
         try:
-            if model_format == "gguf":
-                # For GGUF, look for .gguf files matching the variant
-                import glob
-                base_name = os.path.splitext(config_data["ckpt"])[0]  # Remove .safetensors
-                diffusion_models_dir = folder_paths.get_folder_paths("diffusion_models")[0]
-                pattern = os.path.join(diffusion_models_dir, base_name + "*.gguf")
-                gguf_files = glob.glob(pattern)
-
-                if not gguf_files:
-                    raise FileNotFoundError(f"No GGUF files found matching '{base_name}*.gguf' in diffusion_models folder.")
-
-                # Use the first matching file (or could sort by name to prefer certain quants)
-                ckpt_path = gguf_files[0]
-                print(f"Using GGUF model: {os.path.basename(ckpt_path)}")
-            else:
-                ckpt_path = folder_paths.get_full_path_or_raise("diffusion_models", config_data["ckpt"])
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"Checkpoint not found for '{variant}'. Ensure '{config_data['ckpt']}' is in 'ComfyUI/models/diffusion_models/'.")
+            ckpt_path = folder_paths.get_full_path_or_raise("diffusion_models", checkpoint_file)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Checkpoint file '{checkpoint_file}' not found in diffusion_models folder.")
 
         conf = OmegaConf.load(config_path)
 
         if blocks_in_memory > 0 and hasattr(conf, 'block_swap') and conf.block_swap.enabled:
             conf.block_swap.blocks_in_memory = blocks_in_memory
+
+        is_gguf = checkpoint_file.lower().endswith('.gguf')
+        is_fp8 = not is_gguf and fp8_mode != "off"
+
+        if is_gguf:
+            print(f"Loading GGUF model: {checkpoint_file}")
+        elif is_fp8:
+            print(f"Loading model with FP8 quantization (mode: {fp8_mode})")
+        else:
+            print(f"Loading model: {checkpoint_file}")
 
         handler = KandinskyModelHandler(conf, ckpt_path)
         patcher = KandinskyPatcher(
@@ -80,9 +84,8 @@ class KandinskyLoader(io.ComfyNode):
         )
         handler.conf.use_magcache = use_magcache
         handler.conf.magcache_threshold = magcache_threshold
-        handler.conf.model_format = model_format
-        handler.conf.use_fp8 = (model_format == "fp8")
-        handler.conf.use_gguf = (model_format == "gguf")
+        handler.conf.use_fp8 = is_fp8
+        handler.conf.use_gguf = is_gguf
         handler.conf.fp8_mode = fp8_mode
 
         return io.NodeOutput(patcher)

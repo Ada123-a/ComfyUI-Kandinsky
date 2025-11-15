@@ -20,15 +20,17 @@ from .utils import fractal_flatten, fractal_unflatten
 
 
 class TransformerEncoderBlock(nn.Module):
-    def __init__(self, model_dim, time_dim, ff_dim, head_dim):
+    def __init__(self, model_dim, time_dim, ff_dim, head_dim, operations=None):
         super().__init__()
-        self.text_modulation = Modulation(time_dim, model_dim, 6)
+        if operations is None:
+            operations = nn
+        self.text_modulation = Modulation(time_dim, model_dim, 6, operations=operations)
 
-        self.self_attention_norm = nn.LayerNorm(model_dim, elementwise_affine=False)
-        self.self_attention = MultiheadSelfAttentionEnc(model_dim, head_dim)
+        self.self_attention_norm = operations.LayerNorm(model_dim, elementwise_affine=False)
+        self.self_attention = MultiheadSelfAttentionEnc(model_dim, head_dim, operations=operations)
 
-        self.feed_forward_norm = nn.LayerNorm(model_dim, elementwise_affine=False)
-        self.feed_forward = FeedForward(model_dim, ff_dim)
+        self.feed_forward_norm = operations.LayerNorm(model_dim, elementwise_affine=False)
+        self.feed_forward = FeedForward(model_dim, ff_dim, operations=operations)
 
     def forward(self, x, time_embed, rope, attn_mask=None):
         self_attn_params, ff_params = torch.chunk(self.text_modulation(time_embed), 2, dim=-1)
@@ -45,18 +47,20 @@ class TransformerEncoderBlock(nn.Module):
 
 
 class TransformerDecoderBlock(nn.Module):
-    def __init__(self, model_dim, time_dim, ff_dim, head_dim):
+    def __init__(self, model_dim, time_dim, ff_dim, head_dim, operations=None):
         super().__init__()
-        self.visual_modulation = Modulation(time_dim, model_dim, 9)
+        if operations is None:
+            operations = nn
+        self.visual_modulation = Modulation(time_dim, model_dim, 9, operations=operations)
 
-        self.self_attention_norm = nn.LayerNorm(model_dim, elementwise_affine=False)
-        self.self_attention = MultiheadSelfAttentionDec(model_dim, head_dim)
+        self.self_attention_norm = operations.LayerNorm(model_dim, elementwise_affine=False)
+        self.self_attention = MultiheadSelfAttentionDec(model_dim, head_dim, operations=operations)
 
-        self.cross_attention_norm = nn.LayerNorm(model_dim, elementwise_affine=False)
-        self.cross_attention = MultiheadCrossAttention(model_dim, head_dim)
+        self.cross_attention_norm = operations.LayerNorm(model_dim, elementwise_affine=False)
+        self.cross_attention = MultiheadCrossAttention(model_dim, head_dim, operations=operations)
 
-        self.feed_forward_norm = nn.LayerNorm(model_dim, elementwise_affine=False)
-        self.feed_forward = FeedForward(model_dim, ff_dim)
+        self.feed_forward_norm = operations.LayerNorm(model_dim, elementwise_affine=False)
+        self.feed_forward = FeedForward(model_dim, ff_dim, operations=operations)
 
     def forward(self, visual_embed, text_embed, time_embed, rope, sparse_params, attn_mask=None):
         self_attn_params, cross_attn_params, ff_params = torch.chunk(
@@ -98,8 +102,12 @@ class DiffusionTransformer3D(nn.Module):
         blocks_in_memory=6,
         pin_first_n_blocks=2,
         pin_last_n_blocks=2,
+        operations=None,
     ):
         super().__init__()
+        if operations is None:
+            operations = nn
+
         head_dim = sum(axes_dims)
         self.in_visual_dim = in_visual_dim
         self.model_dim = model_dim
@@ -114,15 +122,15 @@ class DiffusionTransformer3D(nn.Module):
         self.num_visual_blocks = num_visual_blocks
 
         visual_embed_dim = 2 * in_visual_dim + 1 if visual_cond else in_visual_dim
-        self.time_embeddings = TimeEmbeddings(model_dim, time_dim)
-        self.text_embeddings = TextEmbeddings(in_text_dim, model_dim)
-        self.pooled_text_embeddings = TextEmbeddings(in_text_dim2, time_dim)
-        self.visual_embeddings = VisualEmbeddings(visual_embed_dim, model_dim, patch_size)
+        self.time_embeddings = TimeEmbeddings(model_dim, time_dim, operations=operations)
+        self.text_embeddings = TextEmbeddings(in_text_dim, model_dim, operations=operations)
+        self.pooled_text_embeddings = TextEmbeddings(in_text_dim2, time_dim, operations=operations)
+        self.visual_embeddings = VisualEmbeddings(visual_embed_dim, model_dim, patch_size, operations=operations)
 
         self.text_rope_embeddings = RoPE1D(head_dim)
         self.text_transformer_blocks = nn.ModuleList(
             [
-                TransformerEncoderBlock(model_dim, time_dim, ff_dim, head_dim)
+                TransformerEncoderBlock(model_dim, time_dim, ff_dim, head_dim, operations=operations)
                 for _ in range(num_text_blocks)
             ]
         )
@@ -130,12 +138,12 @@ class DiffusionTransformer3D(nn.Module):
         self.visual_rope_embeddings = RoPE3D(axes_dims)
         self.visual_transformer_blocks = nn.ModuleList(
             [
-                TransformerDecoderBlock(model_dim, time_dim, ff_dim, head_dim)
+                TransformerDecoderBlock(model_dim, time_dim, ff_dim, head_dim, operations=operations)
                 for _ in range(num_visual_blocks)
             ]
         )
 
-        self.out_layer = OutLayer(model_dim, time_dim, out_visual_dim, patch_size)
+        self.out_layer = OutLayer(model_dim, time_dim, out_visual_dim, patch_size, operations=operations)
 
     def setup_block_swapping(self, device, offload_device):
         """Initialize block swapping by moving most blocks to CPU."""
