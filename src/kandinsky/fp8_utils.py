@@ -150,13 +150,13 @@ def convert_fp8_linear(module, dit_weight_path, original_dtype, params_to_keep={
     """
     Convert linear layers in a module to use FP8 quantization.
 
-    This function finds all Linear layers in double_blocks and single_blocks,
-    converts their weights to FP8 format, and replaces their forward methods
-    with FP8-aware versions.
+    This function finds all Linear layers in visual_transformer_blocks and either:
+    1. Uses pre-converted FP8 weights if the model is already in FP8 format
+    2. Converts weights to FP8 if they're in higher precision
 
     Args:
         module: The neural network module to convert
-        dit_weight_path: Path to the DiT weights file (used to find FP8 mapping)
+        dit_weight_path: Path to the DiT weights file (used to find FP8 scales)
         original_dtype: Original computation dtype
         params_to_keep: Dictionary of parameters to preserve (unused, for compatibility)
 
@@ -164,38 +164,50 @@ def convert_fp8_linear(module, dit_weight_path, original_dtype, params_to_keep={
         None (modifies module in-place)
 
     Raises:
-        ValueError: If FP8 mapping file is not found
+        ValueError: If FP8 scales file is not found
     """
     setattr(module, "fp8_matmul_enabled", True)
 
-    # Loading FP8 mapping file
-    fp8_map_path = dit_weight_path.replace('.pt', '_map.pt')
-    if not os.path.exists(fp8_map_path):
-        # Try .safetensors extension as well
-        fp8_map_path = dit_weight_path.replace('.safetensors', '_map.pt')
+    # Loading FP8 scales file
+    # For pre-converted models: model_fp8.safetensors → model_fp8_scales.pt
+    # For regular models: model.safetensors → model_map.pt (legacy)
+    scales_path = dit_weight_path.replace('.safetensors', '_scales.pt')
+    if not os.path.exists(scales_path):
+        # Try legacy _map.pt naming
+        scales_path = dit_weight_path.replace('.safetensors', '_map.pt')
+    if not os.path.exists(scales_path):
+        # Try .pt extension
+        scales_path = dit_weight_path.replace('.pt', '_scales.pt')
 
-    if os.path.exists(fp8_map_path):
-        fp8_map = torch.load(fp8_map_path, map_location=lambda storage, loc: storage)
+    if os.path.exists(scales_path):
+        fp8_scales = torch.load(scales_path, map_location=lambda storage, loc: storage)
+        print(f"Loaded FP8 scales from: {os.path.basename(scales_path)}")
     else:
-        raise ValueError(f"Invalid fp8_map path: {fp8_map_path}. "
-                        f"FP8 quantization requires a mapping file (_map.pt) alongside the model weights.")
+        raise ValueError(f"Invalid FP8 scales path: {scales_path}. "
+                        f"FP8 quantization requires a scales file (_scales.pt or _map.pt) alongside the model weights.")
 
     fp8_layers = []
     skipped_layers = []
+    already_fp8 = 0
 
     for key, layer in module.named_modules():
         # Only convert linear layers in transformer blocks
         if isinstance(layer, nn.Linear) and ('visual_transformer_blocks' in key):
-            if key in fp8_map:
+            if key in fp8_scales:
                 fp8_layers.append(key)
                 original_forward = layer.forward
 
                 # Store the FP8 scale factor first
-                setattr(layer, "fp8_scale", fp8_map[key].to(dtype=original_dtype))
+                setattr(layer, "fp8_scale", fp8_scales[key].to(dtype=original_dtype))
 
-                # Convert weights to FP8 (ensure on CPU for conversion)
-                weight_device = layer.weight.device
-                layer.weight = torch.nn.Parameter(layer.weight.cpu().to(torch.float8_e4m3fn).to(weight_device))
+                # Check if weights are already in FP8
+                if layer.weight.dtype == torch.float8_e4m3fn:
+                    # Weights already in FP8, just set up forward pass
+                    already_fp8 += 1
+                else:
+                    # Convert weights to FP8 (ensure on CPU for conversion)
+                    weight_device = layer.weight.device
+                    layer.weight = torch.nn.Parameter(layer.weight.cpu().to(torch.float8_e4m3fn).to(weight_device))
 
                 # Store original forward method and replace with FP8 version
                 setattr(layer, "original_forward", original_forward)
@@ -204,12 +216,15 @@ def convert_fp8_linear(module, dit_weight_path, original_dtype, params_to_keep={
                 skipped_layers.append(key)
 
     if len(fp8_layers) > 0:
-        print(f"Converted {len(fp8_layers)} layers to FP8 quantization")
+        print(f"Configured {len(fp8_layers)} layers for FP8 inference")
+        if already_fp8 > 0:
+            print(f"  - {already_fp8} layers were already in FP8 format (pre-converted)")
+            print(f"  - {len(fp8_layers) - already_fp8} layers converted to FP8")
     else:
-        print("Warning: No layers were converted to FP8. Check if the model architecture matches expected patterns.")
+        print("Warning: No layers were configured for FP8. Check if the model architecture matches expected patterns.")
 
     if len(skipped_layers) > 0:
-        print(f"Note: {len(skipped_layers)} layers skipped (not in FP8 map)")
+        print(f"Note: {len(skipped_layers)} layers skipped (not in FP8 scales)")
 
 
 def convert_fp8_linear_on_the_fly(module, original_dtype):

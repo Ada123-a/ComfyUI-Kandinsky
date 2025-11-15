@@ -62,17 +62,41 @@ class KandinskyPatcher(comfy.model_patcher.ModelPatcher):
 
         model.to(dtype=model_dtype)
 
-        sd = comfy.utils.load_torch_file(self.model.ckpt_path)
+        # Ensure fp8 and gguf are mutually exclusive
+        use_fp8 = hasattr(self.model.conf, 'use_fp8') and self.model.conf.use_fp8
+        use_gguf = hasattr(self.model.conf, 'use_gguf') and self.model.conf.use_gguf
+
+        if use_fp8 and use_gguf:
+            raise ValueError("Cannot use both FP8 and GGUF formats simultaneously. Please choose one.")
+
+        # Load model weights - support GGUF or regular formats
+        if use_gguf:
+            print("Loading GGUF model...")
+            from .gguf_loader import load_gguf_state_dict
+            sd = load_gguf_state_dict(self.model.ckpt_path)
+        else:
+            sd = comfy.utils.load_torch_file(self.model.ckpt_path)
+
         m, u = model.load_state_dict(sd, strict=False)
         if len(m) > 0:
             print("Kandinsky missing keys:", m)
         if len(u) > 0:
             print("Kandinsky unexpected keys:", u)
 
-        if hasattr(self.model.conf, 'use_fp8') and self.model.conf.use_fp8:
+        # Apply FP8 quantization only if not using GGUF (GGUF models are already quantized)
+        if use_fp8 and not use_gguf:
             print(f"Applying FP8 quantization (mode: {self.model.conf.fp8_mode})...")
-            convert_fp8_linear_on_the_fly(model, model_dtype)
-            print("FP8 quantization applied successfully.")
+            try:
+                if self.model.conf.fp8_mode == "with_map":
+                    convert_fp8_linear(model, self.model.ckpt_path, model_dtype)
+                else:
+                    convert_fp8_linear_on_the_fly(model, model_dtype)
+                print("FP8 quantization applied successfully.")
+            except Exception as e:
+                print(f"Warning: Failed to apply FP8 quantization: {e}")
+                print("Continuing with normal precision weights.")
+        elif use_gguf:
+            print("GGUF model loaded successfully (already quantized)")
 
         model.eval()
 

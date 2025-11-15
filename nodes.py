@@ -23,18 +23,21 @@ class KandinskyLoader(io.ComfyNode):
             description="Loads a Kandinsky-5 text-to-video model variant.",
             inputs=[
                 io.Combo.Input("variant", options=list(KANDINSKY_CONFIGS.keys()), default="sft_5s"),
+                io.Combo.Input("model_format", options=["auto", "fp8", "gguf"], default="auto",
+                              tooltip="Model format: 'auto' = FP16/FP32/BF16, 'fp8' = FP8 quantization, 'gguf' = GGUF quantized models. fp8 and gguf cannot be used together."),
                 io.Boolean.Input("use_magcache", default=False, tooltip="Enable MagCache for faster inference."),
                 io.Float.Input("magcache_threshold", default=0.12, min=0.01, max=0.3, step=0.01,
-                              tooltip="MagCache quality threshold. Lower = better quality, slower. Higher = faster, more artifacts. Recommended: T2V 0.06-0.12 / I2V 0.8-0.16"),
-                io.Int.Input("blocks_in_memory", default=0, min=0, max=60,
-                            tooltip="Block swapping. 0=use config default. For 20B model: 24GB=3-4, 48GB=8-12."),
-                io.Boolean.Input("use_fp8", default=False, tooltip="Enable FP8 quantization for reduced memory usage."),
+                              tooltip="MagCache quality threshold. Lower = better quality, slower. Higher = faster, more artifacts."),
+                io.Int.Input("blocks_in_memory", default=0, min=1, max=60,
+                            tooltip="Block swapping. For 20B model: 24GB=1-2, 48GB=2-4. Its nearly 20B by itself, 1-2 blocks is about as much as you can do with 24GB"),
+                io.Combo.Input("fp8_mode", options=["on_the_fly", "with_map"], default="on_the_fly",
+                              tooltip="FP8 mode: 'on_the_fly' converts model to fp8, 'with_map' uses pre-converted FP8 model with _scales.pt file in same folder. Only used when model_format='fp8'."),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
-    def execute(cls, variant: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int, use_fp8: bool) -> io.NodeOutput:
+    def execute(cls, variant: str, model_format: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int, fp8_mode: str) -> io.NodeOutput:
         from .kandinsky_patcher import KANDINSKY_CONFIGS
         config_data = KANDINSKY_CONFIGS[variant]
 
@@ -45,7 +48,22 @@ class KandinskyLoader(io.ComfyNode):
             raise FileNotFoundError(f"Config file not found at '{config_path}'.")
 
         try:
-            ckpt_path = folder_paths.get_full_path_or_raise("diffusion_models", config_data["ckpt"])
+            if model_format == "gguf":
+                # For GGUF, look for .gguf files matching the variant
+                import glob
+                base_name = os.path.splitext(config_data["ckpt"])[0]  # Remove .safetensors
+                diffusion_models_dir = folder_paths.get_folder_paths("diffusion_models")[0]
+                pattern = os.path.join(diffusion_models_dir, base_name + "*.gguf")
+                gguf_files = glob.glob(pattern)
+
+                if not gguf_files:
+                    raise FileNotFoundError(f"No GGUF files found matching '{base_name}*.gguf' in diffusion_models folder.")
+
+                # Use the first matching file (or could sort by name to prefer certain quants)
+                ckpt_path = gguf_files[0]
+                print(f"Using GGUF model: {os.path.basename(ckpt_path)}")
+            else:
+                ckpt_path = folder_paths.get_full_path_or_raise("diffusion_models", config_data["ckpt"])
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Checkpoint not found for '{variant}'. Ensure '{config_data['ckpt']}' is in 'ComfyUI/models/diffusion_models/'.")
 
@@ -62,8 +80,10 @@ class KandinskyLoader(io.ComfyNode):
         )
         handler.conf.use_magcache = use_magcache
         handler.conf.magcache_threshold = magcache_threshold
-        handler.conf.use_fp8 = use_fp8
-        handler.conf.fp8_mode = "on_the_fly"
+        handler.conf.model_format = model_format
+        handler.conf.use_fp8 = (model_format == "fp8")
+        handler.conf.use_gguf = (model_format == "gguf")
+        handler.conf.fp8_mode = fp8_mode
 
         return io.NodeOutput(patcher)
 
@@ -133,16 +153,21 @@ class KandinskyTextEncode(io.ComfyNode):
         pos_text_embeds, pos_pooled_embed = cls._get_raw_embeds(text.split('\n')[0], clip, qwen_vl, content_type)
         neg_text_embeds, neg_pooled_embed = cls._get_raw_embeds(negative_text.split('\n')[0], clip, qwen_vl, content_type)
 
+        offloaded_models = []
         try:
             if hasattr(clip, 'cond_stage_model'):
                 clip.cond_stage_model.to(offload_device)
+                offloaded_models.append("CLIP")
             if hasattr(qwen_vl, 'cond_stage_model'):
                 qwen_vl.cond_stage_model.to(offload_device)
+                offloaded_models.append("Qwen-VL")
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                if offloaded_models:
+                    print(f"CLIP models offloaded to CPU: {', '.join(offloaded_models)}")
         except Exception as e:
-            pass
+            print(f"Warning: CLIP offload failed: {e}")
 
         max_len = max(pos_text_embeds.shape[0], neg_text_embeds.shape[0])
 
@@ -214,8 +239,10 @@ class KandinskyImageToVideoLatent(io.ComfyNode):
     @classmethod
     def execute(cls, vae, image, time_length, batch_size) -> io.NodeOutput:
         from math import floor, sqrt
+        import comfy.model_management as mm
 
-        device = comfy.model_management.get_torch_device()
+        device = mm.get_torch_device()
+        offload_device = mm.unet_offload_device()
 
         image = image.permute(0, 3, 1, 2).to(device)
 
@@ -268,6 +295,14 @@ class KandinskyImageToVideoLatent(io.ComfyNode):
 
             scaling_factor = 0.476986
             image_latent = image_latent * scaling_factor
+
+        try:
+            vae_model.to(offload_device)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                print("VAE offloaded to CPU after image encoding")
+        except Exception as e:
+            print(f"Warning: VAE offload failed: {e}")
 
         num_frames = int(time_length * 24)
         latent_frames = (num_frames - 1) // 4 + 1

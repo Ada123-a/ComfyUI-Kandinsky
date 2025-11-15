@@ -107,6 +107,7 @@ def generate(
     visual_cond=None,
     visual_cond_mask=None,
 ):
+
     g = torch.Generator(device=device)
     g.manual_seed(seed)
 
