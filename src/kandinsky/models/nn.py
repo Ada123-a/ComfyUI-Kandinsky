@@ -36,7 +36,7 @@ else:
         FA = None
 
 #@torch.compile(mode="max-autotune-no-cudagraphs", dynamic=True)
-def sdpa(q, k, v):
+def sdpa(q, k, v, attn_mask=None):
     query = q.transpose(1, 2).contiguous()
     key = k.transpose(1, 2).contiguous()
     value = v.transpose(1, 2).contiguous()
@@ -44,7 +44,8 @@ def sdpa(q, k, v):
         F.scaled_dot_product_attention(
             query,
             key,
-            value
+            value,
+            attn_mask=attn_mask
         )
         .transpose(1, 2)
         .contiguous()
@@ -247,23 +248,29 @@ class MultiheadSelfAttentionEnc(nn.Module):
         k = self.key_norm(k.float()).type_as(k)
         return q, k
 
-    def scaled_dot_product_attention(self, query, key, value):
+    def scaled_dot_product_attention(self, query, key, value, attn_mask=None):
         if USE_SAGE_ATTENTION and SAGE_AVAILABLE:
+            # SageAttention doesn't support attn_mask, so we ignore it
             out = sage_attn(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         else:
-            out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+            # FA will either be flash_attn_func or sdpa
+            # flash_attn_func doesn't support attn_mask, sdpa does
+            if FA == sdpa and attn_mask is not None:
+                out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0), attn_mask=attn_mask)[0].flatten(-2, -1)
+            else:
+                out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         return out
 
     def out_l(self, x):
         return self.out_layer(x)
 
-    def forward(self, x, rope):
+    def forward(self, x, rope, attn_mask=None):
         query, key, value = self.get_qkv(x)
         query, key = self.norm_qk(query, key)
         query = apply_rotary(query, rope)
         key = apply_rotary(key, rope)
 
-        out = self.scaled_dot_product_attention(query, key, value)
+        out = self.scaled_dot_product_attention(query, key, value, attn_mask=attn_mask)
 
         out = self.out_l(out)
         return out
@@ -299,11 +306,17 @@ class MultiheadSelfAttentionDec(nn.Module):
         k = self.key_norm(k.float()).type_as(k)
         return q, k
 
-    def attention(self, query, key, value):
+    def attention(self, query, key, value, attn_mask=None):
         if USE_SAGE_ATTENTION and SAGE_AVAILABLE:
+            # SageAttention doesn't support attn_mask, so we ignore it
             out = sage_attn(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         else:
-            out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+            # FA will either be flash_attn_func or sdpa
+            # flash_attn_func doesn't support attn_mask, sdpa does
+            if FA == sdpa and attn_mask is not None:
+                out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0), attn_mask=attn_mask)[0].flatten(-2, -1)
+            else:
+                out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         return out
 
     def nabla(self, query, key, value, sparse_params=None):
@@ -333,7 +346,7 @@ class MultiheadSelfAttentionDec(nn.Module):
     def out_l(self, x):
         return self.out_layer(x)
 
-    def forward(self, x, rope, sparse_params=None):
+    def forward(self, x, rope, sparse_params=None, attn_mask=None):
         query, key, value = self.get_qkv(x)
         query, key = self.norm_qk(query, key)
         query = apply_rotary(query, rope)
@@ -342,7 +355,7 @@ class MultiheadSelfAttentionDec(nn.Module):
         if sparse_params is not None:
             out = self.nabla(query, key, value, sparse_params=sparse_params)
         else:
-            out = self.attention(query, key, value)
+            out = self.attention(query, key, value, attn_mask=attn_mask)
 
         out = self.out_l(out)
         return out
@@ -379,21 +392,27 @@ class MultiheadCrossAttention(nn.Module):
         k = self.key_norm(k.float()).type_as(k)
         return q, k
 
-    def attention(self, query, key, value):
+    def attention(self, query, key, value, attn_mask=None):
         if USE_SAGE_ATTENTION and SAGE_AVAILABLE:
+            # SageAttention doesn't support attn_mask, so we ignore it
             out = sage_attn(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         else:
-            out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
+            # FA will either be flash_attn_func or sdpa
+            # flash_attn_func doesn't support attn_mask, sdpa does
+            if FA == sdpa and attn_mask is not None:
+                out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0), attn_mask=attn_mask)[0].flatten(-2, -1)
+            else:
+                out = FA(q=query.unsqueeze(0), k=key.unsqueeze(0), v=value.unsqueeze(0))[0].flatten(-2, -1)
         return out
 
     def out_l(self, x):
         return self.out_layer(x)
 
-    def forward(self, x, cond):
+    def forward(self, x, cond, attn_mask=None):
         query, key, value = self.get_qkv(x, cond)
         query, key = self.norm_qk(query, key)
 
-        out = self.attention(query, key, value)
+        out = self.attention(query, key, value, attn_mask=attn_mask)
         out = self.out_l(out)
         return out
 

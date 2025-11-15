@@ -10,6 +10,7 @@ KANDINSKY_CONFIGS = {
     "sft_5s": {"config": "config_5s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_sft_5s.safetensors"},
     "sft_10s": {"config": "config_10s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_sft_10s.safetensors"},
     "i2v_5s": {"config": "config_5s_i2v.yaml", "ckpt": "kandinsky/kandinsky5lite_i2v_5s.safetensors"},
+    "i2v_pro_20b": {"config": "config_5s_i2v_pro_20b.yaml", "ckpt": "kandinsky/kandinsky5_i2v_pro_sft_5s_20b.safetensors"},
     "pretrain_5s": {"config": "config_5s_pretrain.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_pretrain_5s.safetensors"},
     "pretrain_10s": {"config": "config_10s_pretrain.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_pretrain_10s.safetensors"},
     "nocfg_5s": {"config": "config_5s_nocfg.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_nocfg_5s.safetensors"},
@@ -46,14 +47,23 @@ class KandinskyPatcher(comfy.model_patcher.ModelPatcher):
             return
 
         # print(f"Loading Kandinsky DiT model to {self.load_device}...")
-        
+
         model_dtype = model_management.unet_dtype()
 
-        dit_params = self.model.conf.model.dit_params
+        dit_params = dict(self.model.conf.model.dit_params)
+
+        # Add block swapping parameters if enabled
+        if hasattr(self.model.conf, 'block_swap') and self.model.conf.block_swap.enabled:
+            dit_params['block_swap_enabled'] = True
+            dit_params['blocks_in_memory'] = self.model.conf.block_swap.get('blocks_in_memory', 6)
+            dit_params['pin_first_n_blocks'] = self.model.conf.block_swap.get('pin_first_n_blocks', 2)
+            dit_params['pin_last_n_blocks'] = self.model.conf.block_swap.get('pin_last_n_blocks', 2)
+            print(f"Block swapping enabled: {dit_params['blocks_in_memory']} blocks in memory")
+
         model = DiffusionTransformer3D(**dit_params)
-        
+
         model.to(dtype=model_dtype)
-        
+
         sd = comfy.utils.load_torch_file(self.model.ckpt_path)
         m, u = model.load_state_dict(sd, strict=False)
         if len(m) > 0:
@@ -63,6 +73,10 @@ class KandinskyPatcher(comfy.model_patcher.ModelPatcher):
 
         model.eval()
         model.to(self.load_device)
+
+        # Setup block swapping after model is on the correct device
+        if hasattr(model, 'block_swap_enabled') and model.block_swap_enabled:
+            model.setup_block_swapping(self.load_device, self.offload_device)
 
         if model_management.force_channels_last():
             model.to(memory_format=torch.channels_last)

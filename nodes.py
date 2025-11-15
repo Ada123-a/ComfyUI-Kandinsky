@@ -24,17 +24,19 @@ class KandinskyLoader(io.ComfyNode):
             inputs=[
                 io.Combo.Input("variant", options=list(KANDINSKY_CONFIGS.keys()), default="sft_5s"),
                 io.Boolean.Input("use_magcache", default=False, tooltip="Enable MagCache for faster inference."),
-                io.Float.Input("magcache_threshold", default=0.08, min=0.01, max=0.3, step=0.01,
-                              tooltip="MagCache quality threshold. Lower = better quality, slower. Recommended: 0.12 for I2V, 0.06-0.08 for T2V."),
+                io.Float.Input("magcache_threshold", default=0.12, min=0.01, max=0.3, step=0.01,
+                              tooltip="MagCache quality threshold. Lower = better quality, slower. Higher = faster, more artifacts. Recommended: T2V 0.06-0.12 / I2V 0.8-0.16"),
+                io.Int.Input("blocks_in_memory", default=0, min=0, max=60,
+                            tooltip="Block swapping. 0=use config default. For 20B model: 24GB=3-4, 48GB=8-12."),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
-    def execute(cls, variant: str, use_magcache: bool, magcache_threshold: float) -> io.NodeOutput:
+    def execute(cls, variant: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int) -> io.NodeOutput:
         from .kandinsky_patcher import KANDINSKY_CONFIGS
         config_data = KANDINSKY_CONFIGS[variant]
-        
+
         base_path = os.path.dirname(__file__)
         config_path = os.path.join(base_path, 'src', 'configs', config_data["config"])
 
@@ -47,6 +49,10 @@ class KandinskyLoader(io.ComfyNode):
             raise FileNotFoundError(f"Checkpoint not found for '{variant}'. Ensure '{config_data['ckpt']}' is in 'ComfyUI/models/diffusion_models/'.")
 
         conf = OmegaConf.load(config_path)
+
+        if blocks_in_memory > 0 and hasattr(conf, 'block_swap') and conf.block_swap.enabled:
+            conf.block_swap.blocks_in_memory = blocks_in_memory
+
         handler = KandinskyModelHandler(conf, ckpt_path)
         patcher = KandinskyPatcher(
             handler,
@@ -55,6 +61,7 @@ class KandinskyLoader(io.ComfyNode):
         )
         handler.conf.use_magcache = use_magcache
         handler.conf.magcache_threshold = magcache_threshold
+
         return io.NodeOutput(patcher)
 
 

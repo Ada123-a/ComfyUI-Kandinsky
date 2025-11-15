@@ -1,0 +1,60 @@
+metrics:
+  scale_factor:
+  - 1.0
+  - 2.0
+  - 2.0
+  resolution: 512
+
+model:
+  checkpoint_path: "./weights/model/kandinsky5_i2v_pro_sft_5s_20b.safetensors"
+  num_steps: 50
+  guidance_weight: 5.0
+
+  dit_params:
+    in_visual_dim: 16
+    out_visual_dim: 16
+    time_dim: 1024
+    patch_size:
+    - 1
+    - 2
+    - 2
+    model_dim: 4096
+    ff_dim: 16384
+    num_text_blocks: 4
+    num_visual_blocks: 60
+    axes_dims:
+    - 32
+    - 48
+    - 48
+    visual_cond: true
+    in_text_dim: 3584
+    in_text_dim2: 768
+
+  attention:
+    type: flash
+    causal: false
+    local: false
+    glob: false
+    window: 3
+
+  vae:
+    checkpoint_path: "./weights/vae/"
+    name: "hunyuan"
+
+  text_embedder:
+    qwen:
+      emb_size: 3584
+      checkpoint_path: "./weights/text_encoder/"
+      max_length: 256
+    clip:
+      checkpoint_path: "./weights/text_encoder2/"
+      emb_size: 768
+      max_length: 77
+
+block_swap:
+  enabled: true
+  blocks_in_memory: 6
+  pin_first_n_blocks: 2
+  pin_last_n_blocks: 2
+
+# MagCache not available for 20B model yet

@@ -1,8 +1,8 @@
 {
-  "id": "cb7ef484-aa8c-45c9-9382-fd7751732586",
+  "id": "f9e64a63-452c-4f04-b916-421bdd702b7f",
   "revision": 0,
-  "last_node_id": 54,
-  "last_link_id": 81,
+  "last_node_id": 51,
+  "last_link_id": 78,
   "nodes": [
     {
       "id": 41,
@@ -18,7 +18,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 12,
+      "order": 9,
       "mode": 4,
       "inputs": [
         {
@@ -65,7 +65,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 11,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -84,7 +84,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            74
+            78
           ]
         }
       ],
@@ -114,16 +114,16 @@
       ],
       "size": [
         578.1529548267183,
-        642.873259153738
+        720.1019698844789
       ],
       "flags": {},
-      "order": 14,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 75
+          "link": 78
         },
         {
           "name": "audio",
@@ -171,13 +171,13 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "AnimateDiff_00152.mp4",
+            "filename": "AnimateDiff_00145.mp4",
             "subfolder": "",
             "type": "output",
             "format": "video/nvenc_h264-mp4",
             "frame_rate": 24,
-            "workflow": "AnimateDiff_00152.png",
-            "fullpath": "/home/ada/AI/ComfyUI/output/AnimateDiff_00152.mp4"
+            "workflow": "AnimateDiff_00145.png",
+            "fullpath": "/home/ada/AI/ComfyUI/output/AnimateDiff_00145.mp4"
           }
         }
       }
@@ -275,6 +275,50 @@
       "bgcolor": "#335"
     },
     {
+      "id": 8,
+      "type": "VAELoader",
+      "pos": [
+        -2307.65908092108,
+        -712.0155091309775
+      ],
+      "size": [
+        350.65509033203125,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            58,
+            64
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "vae_name": true
+          },
+          "version": "7.2.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "hunyuan_video_vae_bf16.safetensors"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
       "id": 42,
       "type": "MarkdownNote",
       "pos": [
@@ -286,7 +330,7 @@
         750
       ],
       "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -316,14 +360,16 @@
         130
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
         {
           "name": "LATENT",
           "type": "LATENT",
-          "links": []
+          "links": [
+            77
+          ]
         }
       ],
       "properties": {
@@ -352,136 +398,6 @@
       "bgcolor": "#355"
     },
     {
-      "id": 53,
-      "type": "LoadImage",
-      "pos": [
-        -1879.4901337536137,
-        -162.4143672413926
-      ],
-      "size": [
-        274.080078125,
-        314
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            79
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.68",
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "G5RZGSkWIAARHiy.jpeg",
-        "image"
-      ]
-    },
-    {
-      "id": 52,
-      "type": "KandinskyV5_ImageToVideoLatent",
-      "pos": [
-        -2286.230154888156,
-        -46.09031643042702
-      ],
-      "size": [
-        316.790625,
-        102
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 81
-        },
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 78
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            80
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "Ada123-a/ComfyUI-Kandinsky",
-        "ver": "a60d858e3a025c0aaa7897bfc5778e029b8fa0aa",
-        "Node name for S&R": "KandinskyV5_ImageToVideoLatent",
-        "cnr_id": "ComfyUI-Kandinsky"
-      },
-      "widgets_values": [
-        5,
-        1
-      ]
-    },
-    {
-      "id": 8,
-      "type": "VAELoader",
-      "pos": [
-        -2307.65908092108,
-        -712.0155091309775
-      ],
-      "size": [
-        350.65509033203125,
-        58
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "VAE",
-          "type": "VAE",
-          "slot_index": 0,
-          "links": [
-            58,
-            64,
-            81
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.18",
-        "Node name for S&R": "VAELoader",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "vae_name": true
-          },
-          "version": "7.2.2",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "hunyuan_video_vae_bf16.safetensors"
-      ],
-      "color": "#223",
-      "bgcolor": "#335"
-    },
-    {
       "id": 12,
       "type": "KandinskyV5_TextEncode",
       "pos": [
@@ -493,7 +409,7 @@
         430
       ],
       "flags": {},
-      "order": 7,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -539,119 +455,12 @@
         }
       },
       "widgets_values": [
-        "animation, girl with red hair and a red, black and white suit on the left, man with black hair and wearing a blue and white suit on the right, the girl is laughing as the man stares at her with a incredulous expression, they are both walking down a hallway toward's the viewer",
+        "animation, a woman with red hair sits down at a table and drinks from a cup",
         "Vibrant colors, overexposure, blurred details, subtitles, artwork, painting, still image, overall grayness, worst quality, low quality, JPEG compression, ugly, mutilated, extra fingers, deformed, disfigured, malformed limbs, fused fingers, still image, cluttered background, crowded background, walking backwards",
         "video"
       ],
       "color": "#232",
       "bgcolor": "#353"
-    },
-    {
-      "id": 50,
-      "type": "KandinskyV5_PruneFrames",
-      "pos": [
-        -1227.1266541055156,
-        -811.2644835538943
-      ],
-      "size": [
-        270,
-        82
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 74
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            75
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "Ada123-a/ComfyUI-Kandinsky",
-        "ver": "67806d74f6715a1ccb9f59c5b521d9563fb58a12",
-        "Node name for S&R": "KandinskyV5_PruneFrames"
-      },
-      "widgets_values": [
-        2,
-        0
-      ]
-    },
-    {
-      "id": 54,
-      "type": "ImageResizeKJv2",
-      "pos": [
-        -2622.1444406349274,
-        -138.08708214601393
-      ],
-      "size": [
-        270,
-        336
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 79
-        },
-        {
-          "name": "mask",
-          "shape": 7,
-          "type": "MASK",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            78
-          ]
-        },
-        {
-          "name": "width",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "height",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "1.1.9",
-        "Node name for S&R": "ImageResizeKJv2"
-      },
-      "widgets_values": [
-        768,
-        512,
-        "nearest-exact",
-        "resize",
-        "0, 0, 0",
-        "center",
-        2,
-        "cpu"
-      ]
     },
     {
       "id": 11,
@@ -665,7 +474,7 @@
         133.63116905824938
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -692,9 +501,9 @@
         }
       },
       "widgets_values": [
-        "i2v_5s",
+        "sft_5s",
         true,
-        0.12,
+        0.08,
         0.2
       ],
       "color": "#223",
@@ -712,7 +521,7 @@
         238
       ],
       "flags": {},
-      "order": 10,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -733,7 +542,7 @@
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 80
+          "link": 77
         }
       ],
       "outputs": [
@@ -846,52 +655,20 @@
       "VAE"
     ],
     [
-      74,
-      39,
-      0,
-      50,
-      0,
-      "IMAGE"
-    ],
-    [
-      75,
-      50,
-      0,
-      43,
-      0,
-      "IMAGE"
-    ],
-    [
-      78,
-      54,
-      0,
-      52,
-      1,
-      "IMAGE"
-    ],
-    [
-      79,
-      53,
-      0,
-      54,
-      0,
-      "IMAGE"
-    ],
-    [
-      80,
-      52,
+      77,
+      13,
       0,
       14,
       3,
       "LATENT"
     ],
     [
-      81,
-      8,
+      78,
+      39,
       0,
-      52,
+      43,
       0,
-      "VAE"
+      "IMAGE"
     ]
   ],
   "groups": [
@@ -912,10 +689,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7590696451625755,
+      "scale": 0.6900633137841587,
       "offset": [
-        2795.348341774955,
-        940.4931269114995
+        2968.8151895596848,
+        1134.340053569598
       ]
     },
     "frontendVersion": "1.28.8",

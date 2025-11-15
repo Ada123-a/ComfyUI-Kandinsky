@@ -181,9 +181,9 @@ class KandinskySampler(io.ComfyNode):
             inputs=[
                 io.Model.Input("model", tooltip="The Kandinsky 5 model patcher from the Kandinsky 5 Loader."),
                 io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True),
-                io.Int.Input("steps", default=50, min=1, max=200, tooltip="Number of sampling steps."),
-                io.Float.Input("cfg", default=5.0, min=1.0, max=20.0, step=0.1),
-                io.Float.Input("scheduler_scale", default=5.0, min=1.0, max=20.0, step=0.1),
+                io.Int.Input("steps", default=50, min=1, max=200, tooltip="50, 16 for distilled version."),
+                io.Float.Input("cfg", default=5.0, min=1.0, max=20.0, step=0.1, tooltip="1.0 for distilled16steps and nocfg, 5.0 for sft and pretrain."),
+                io.Float.Input("scheduler_scale", default=1.0, min=1.0, max=20.0, step=0.1, "5.0 for 5s, 10.0 for 10s."),
                 io.Boolean.Input("use_sage_attention", default=False, tooltip="Enable SageAttention for faster inference with lower memory usage."),
                 io.Conditioning.Input("positive", tooltip="Positive conditioning from Kandinsky 5 Text Encode."),
                 io.Conditioning.Input("negative", tooltip="Negative conditioning from Kandinsky 5 Text Encode."),
@@ -210,9 +210,12 @@ class KandinskySampler(io.ComfyNode):
 
         if use_magcache:
             if hasattr(conf, "magcache"):
-                threshold = conf.get('magcache_threshold', 0.08)
+                threshold = conf.get('magcache_threshold', 0.12)
+
+                # Fixed values: start at 20%, run to end (100%)
                 set_magcache_params(diffusion_model, conf.magcache.mag_ratios, steps,
-                                  conf.model.guidance_weight == 1.0, threshold=threshold)
+                                  conf.model.guidance_weight == 1.0, threshold=threshold,
+                                  start_percent=0.2, end_percent=1.0)
             else:
                 print("Warning: use_magcache is True but no magcache config found")
         elif is_magcache_active:
