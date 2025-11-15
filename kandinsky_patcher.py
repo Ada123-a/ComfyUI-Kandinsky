@@ -5,6 +5,7 @@ import comfy.model_management as model_management
 import comfy.utils
 
 from .src.kandinsky.models.dit import DiffusionTransformer3D
+from .src.kandinsky.fp8_utils import convert_fp8_linear, convert_fp8_linear_on_the_fly
 
 KANDINSKY_CONFIGS = {
     "sft_5s": {"config": "config_5s_sft.yaml", "ckpt": "kandinsky/kandinsky5lite_t2v_sft_5s.safetensors"},
@@ -47,19 +48,15 @@ class KandinskyPatcher(comfy.model_patcher.ModelPatcher):
             self.model.diffusion_model.to(self.load_device)
             return
 
-        # print(f"Loading Kandinsky DiT model to {self.load_device}...")
-
         model_dtype = model_management.unet_dtype()
 
         dit_params = dict(self.model.conf.model.dit_params)
 
-        # Add block swapping parameters if enabled
         if hasattr(self.model.conf, 'block_swap') and self.model.conf.block_swap.enabled:
             dit_params['block_swap_enabled'] = True
             dit_params['blocks_in_memory'] = self.model.conf.block_swap.get('blocks_in_memory', 6)
             dit_params['pin_first_n_blocks'] = self.model.conf.block_swap.get('pin_first_n_blocks', 2)
             dit_params['pin_last_n_blocks'] = self.model.conf.block_swap.get('pin_last_n_blocks', 2)
-            print(f"Block swapping enabled: {dit_params['blocks_in_memory']} blocks in memory")
 
         model = DiffusionTransformer3D(**dit_params)
 
@@ -72,23 +69,56 @@ class KandinskyPatcher(comfy.model_patcher.ModelPatcher):
         if len(u) > 0:
             print("Kandinsky unexpected keys:", u)
 
+        if hasattr(self.model.conf, 'use_fp8') and self.model.conf.use_fp8:
+            print(f"Applying FP8 quantization (mode: {self.model.conf.fp8_mode})...")
+            convert_fp8_linear_on_the_fly(model, model_dtype)
+            print("FP8 quantization applied successfully.")
+
         model.eval()
-        model.to(self.load_device)
 
-        # Setup block swapping after model is on the correct device
         if hasattr(model, 'block_swap_enabled') and model.block_swap_enabled:
-            model.setup_block_swapping(self.load_device, self.offload_device)
 
-        if model_management.force_channels_last():
-            model.to(memory_format=torch.channels_last)
+            pinned_blocks = set()
+            for i in range(min(model.pin_first_n_blocks, model.num_visual_blocks)):
+                pinned_blocks.add(i)
+            for i in range(max(0, model.num_visual_blocks - model.pin_last_n_blocks), model.num_visual_blocks):
+                pinned_blocks.add(i)
+
+            model.pinned_blocks = pinned_blocks
+
+            model.time_embeddings.to(self.load_device)
+            model.text_embeddings.to(self.load_device)
+            model.pooled_text_embeddings.to(self.load_device)
+            model.visual_embeddings.to(self.load_device)
+            model.text_rope_embeddings.to(self.load_device)
+            model.visual_rope_embeddings.to(self.load_device)
+            model.out_layer.to(self.load_device)
+
+            for block in model.text_transformer_blocks:
+                block.to(self.load_device)
+
+            for i, block in enumerate(model.visual_transformer_blocks):
+                if i in pinned_blocks:
+                    block.to(self.load_device)
+                else:
+                    block.to(self.offload_device)
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            if model_management.force_channels_last():
+                pass
+        else:
+            model.to(self.load_device)
+
+            if model_management.force_channels_last():
+                model.to(memory_format=torch.channels_last)
 
         self.model.diffusion_model = model
-        # print("Kandinsky DiT model loaded.")
         return
 
     def unpatch_model(self, device_to=None, unpatch_weights=True, *args, **kwargs):
         if self.is_loaded:
-            # print(f"Offloading Kandinsky DiT model to {self.offload_device}...")
             self.model.diffusion_model.to(self.offload_device)
 
         if unpatch_weights:

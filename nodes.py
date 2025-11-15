@@ -28,12 +28,13 @@ class KandinskyLoader(io.ComfyNode):
                               tooltip="MagCache quality threshold. Lower = better quality, slower. Higher = faster, more artifacts. Recommended: T2V 0.06-0.12 / I2V 0.8-0.16"),
                 io.Int.Input("blocks_in_memory", default=0, min=0, max=60,
                             tooltip="Block swapping. 0=use config default. For 20B model: 24GB=3-4, 48GB=8-12."),
+                io.Boolean.Input("use_fp8", default=False, tooltip="Enable FP8 quantization for reduced memory usage."),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
-    def execute(cls, variant: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int) -> io.NodeOutput:
+    def execute(cls, variant: str, use_magcache: bool, magcache_threshold: float, blocks_in_memory: int, use_fp8: bool) -> io.NodeOutput:
         from .kandinsky_patcher import KANDINSKY_CONFIGS
         config_data = KANDINSKY_CONFIGS[variant]
 
@@ -61,6 +62,8 @@ class KandinskyLoader(io.ComfyNode):
         )
         handler.conf.use_magcache = use_magcache
         handler.conf.magcache_threshold = magcache_threshold
+        handler.conf.use_fp8 = use_fp8
+        handler.conf.fp8_mode = "on_the_fly"
 
         return io.NodeOutput(patcher)
 
@@ -88,6 +91,17 @@ class KandinskyTextEncode(io.ComfyNode):
 
     @classmethod
     def _get_raw_embeds(cls, text: str, clip_wrapper: comfy.sd.CLIP, qwen_vl_wrapper: comfy.sd.CLIP, content_type: str):
+        import comfy.model_management as mm
+
+        load_device = mm.get_torch_device()
+        try:
+            if hasattr(clip_wrapper, 'cond_stage_model'):
+                clip_wrapper.cond_stage_model.to(load_device)
+            if hasattr(qwen_vl_wrapper, 'cond_stage_model'):
+                qwen_vl_wrapper.cond_stage_model.to(load_device)
+        except Exception:
+            pass
+
         clip_tokens = clip_wrapper.tokenize(text)
         _, pooled_embed = clip_wrapper.encode_from_tokens(clip_tokens, return_pooled=True)
 
@@ -101,7 +115,7 @@ class KandinskyTextEncode(io.ComfyNode):
         text_embeds_padded = encoded_output.get('cond')
         if text_embeds_padded is None:
              raise ValueError("The Qwen CLIP encoder did not return 'cond'. Ensure you are using a CLIPLoader with the 'qwen_image' type.")
-        
+
         attention_mask = encoded_output.get('attention_mask')
         if attention_mask is not None:
              text_embeds_unpadded = text_embeds_padded[attention_mask.bool()]
@@ -112,11 +126,26 @@ class KandinskyTextEncode(io.ComfyNode):
 
     @classmethod
     def execute(cls, clip, qwen_vl, text, negative_text, content_type) -> io.NodeOutput:
+        import comfy.model_management as mm
+
+        offload_device = mm.unet_offload_device()
+
         pos_text_embeds, pos_pooled_embed = cls._get_raw_embeds(text.split('\n')[0], clip, qwen_vl, content_type)
         neg_text_embeds, neg_pooled_embed = cls._get_raw_embeds(negative_text.split('\n')[0], clip, qwen_vl, content_type)
-        
+
+        try:
+            if hasattr(clip, 'cond_stage_model'):
+                clip.cond_stage_model.to(offload_device)
+            if hasattr(qwen_vl, 'cond_stage_model'):
+                qwen_vl.cond_stage_model.to(offload_device)
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception as e:
+            pass
+
         max_len = max(pos_text_embeds.shape[0], neg_text_embeds.shape[0])
-        
+
         if pos_text_embeds.shape[0] < max_len:
             pad_amount = max_len - pos_text_embeds.shape[0]
             padding = torch.zeros((pad_amount, pos_text_embeds.shape[1]), dtype=pos_text_embeds.dtype, device=pos_text_embeds.device)
@@ -126,7 +155,7 @@ class KandinskyTextEncode(io.ComfyNode):
             pad_amount = max_len - neg_text_embeds.shape[0]
             padding = torch.zeros((pad_amount, neg_text_embeds.shape[1]), dtype=neg_text_embeds.dtype, device=neg_text_embeds.device)
             neg_text_embeds = torch.cat([neg_text_embeds, padding], dim=0)
-            
+
         pos_embeds = {"text_embeds": pos_text_embeds, "pooled_embed": pos_pooled_embed}
         positive = [[torch.zeros(1), {"kandinsky_embeds": pos_embeds}]]
 

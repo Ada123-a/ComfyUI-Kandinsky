@@ -212,7 +212,6 @@ class KandinskySampler(io.ComfyNode):
             if hasattr(conf, "magcache"):
                 threshold = conf.get('magcache_threshold', 0.12)
 
-                # Fixed values: start at 20%, run to end (100%)
                 set_magcache_params(diffusion_model, conf.magcache.mag_ratios, steps,
                                   conf.model.guidance_weight == 1.0, threshold=threshold,
                                   start_percent=0.2, end_percent=1.0)

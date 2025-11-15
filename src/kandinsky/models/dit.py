@@ -219,26 +219,36 @@ class DiffusionTransformer3D(nn.Module):
             device = visual_embed.device
             offload_device = torch.device('cpu')
 
+            # Track which unpinned blocks are currently on GPU (FIFO queue)
+            currently_loaded_blocks = []
+
             # Process blocks with swapping
             for i, visual_transformer_block in enumerate(self.visual_transformer_blocks):
                 # Check if block needs to be loaded to GPU
                 if i not in self.pinned_blocks:
-                    # Move current block to GPU
+                    # BEFORE loading new block, check if we need to offload
+                    # We need to stay UNDER the limit, so offload when at capacity
+                    while len(currently_loaded_blocks) >= self.blocks_in_memory:
+                        # Offload the oldest loaded block (FIFO)
+                        block_to_offload = currently_loaded_blocks.pop(0)
+                        self.visual_transformer_blocks[block_to_offload].to(offload_device)
+                        # Force immediate memory release
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+
+                    # Now load the current block
                     visual_transformer_block.to(device)
+                    currently_loaded_blocks.append(i)
 
                 # Process the block
                 visual_embed = visual_transformer_block(visual_embed, text_embed, time_embed,
                                                         visual_rope, sparse_params, attention_mask)
 
-                # Move block back to CPU if not pinned and we need to free memory
-                if i not in self.pinned_blocks:
-                    # Determine if we should offload this block
-                    # Keep a sliding window of blocks in memory
-                    blocks_to_keep_start = max(0, i - self.blocks_in_memory // 2)
-                    blocks_to_keep_end = min(self.num_visual_blocks, i + self.blocks_in_memory // 2)
-
-                    if i < blocks_to_keep_start or i >= blocks_to_keep_end:
-                        visual_transformer_block.to(offload_device)
+            # Clean up: offload all unpinned blocks after processing
+            for block_idx in currently_loaded_blocks:
+                self.visual_transformer_blocks[block_idx].to(offload_device)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         else:
             # Normal forward pass without block swapping
             for visual_transformer_block in self.visual_transformer_blocks:

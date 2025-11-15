@@ -26,7 +26,7 @@ model:
     - 32
     - 48
     - 48
-    visual_cond: false
+    visual_cond: true
     in_text_dim: 3584
     in_text_dim2: 768
 
