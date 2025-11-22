@@ -12,6 +12,93 @@ from .kandinsky_patcher import KandinskyModelHandler, KandinskyPatcher
 from .src.kandinsky.magcache_utils import set_magcache_params
 from .src.kandinsky.models.text_embedders import Qwen2_5_VLTextEmbedder
 
+try:
+    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+except ImportError:
+    Qwen2_5_VLForConditionalGeneration = None
+    AutoProcessor = None
+
+class KandinskyQwenWrapper:
+    def __init__(self, model, processor, device):
+        self.model = model
+        self.processor = processor
+        self.device = device
+        self.patcher = comfy.model_patcher.ModelPatcher(self.model, load_device=device, offload_device=comfy.model_management.unet_offload_device())
+    
+    def encode(self, text, content_type):
+        qwen_template_config = Qwen2_5_VLTextEmbedder.PROMPT_TEMPLATE
+        prompt_template = "\n".join(qwen_template_config["template"][content_type])
+        crop_start = qwen_template_config["crop_start"][content_type]
+        full_text = prompt_template.format(text)
+        
+        max_length = 256 + crop_start # Default max length
+        
+        inputs = self.processor(
+            text=[full_text],
+            images=None,
+            videos=None,
+            max_length=max_length,
+            truncation=True,
+            return_tensors="pt",
+            padding="max_length",
+        ).to(self.device)
+        
+        with torch.no_grad():
+            embeds = self.model(
+                input_ids=inputs["input_ids"],
+                return_dict=True,
+                output_hidden_states=True,
+            )["hidden_states"][-1][:, crop_start:]
+            
+        attention_mask = inputs["attention_mask"][:, crop_start:]
+        return embeds, attention_mask
+
+class KandinskyQwenLoader(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="KandinskyV5_QwenLoader",
+            display_name="Kandinsky 5 Qwen Loader",
+            category="Kandinsky",
+            description="Loads the Qwen2.5-VL model directly using Transformers. Requires config.json in the model folder.",
+            inputs=[
+                io.Combo.Input("checkpoint", options=folder_paths.get_filename_list("text_encoders"), tooltip="Select the Qwen2.5-VL model."),
+                io.Combo.Input("precision", options=["bf16", "fp16", "fp32"], default="bf16", tooltip="Precision to load the model in."),
+            ],
+            outputs=[io.Output("QWEN2_5_VL", type="CLIP")], # Output as CLIP type for compatibility
+        )
+
+    @classmethod
+    def execute(cls, checkpoint, precision) -> io.NodeOutput:
+        if Qwen2_5_VLForConditionalGeneration is None:
+            raise ImportError("transformers library is required for KandinskyQwenLoader")
+            
+        checkpoint_path = folder_paths.get_full_path_or_raise("text_encoders", checkpoint)
+        
+        dtype = torch.bfloat16 if precision == "bf16" else torch.float16 if precision == "fp16" else torch.float32
+        device = comfy.model_management.get_torch_device()
+        
+        # Try to load from directory if checkpoint is a file
+        load_path = checkpoint_path
+        if os.path.isfile(checkpoint_path):
+            load_path = os.path.dirname(checkpoint_path)
+            
+        try:
+            # Load to CPU first to avoid OOM/Bus Error during load
+            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(load_path, torch_dtype=dtype, device_map="cpu")
+        except Exception as e:
+            # If loading from folder fails, try loading the specific file if possible (transformers usually needs folder)
+            # But maybe the user has the file in a folder with config.json
+            raise ValueError(f"Failed to load Qwen model from {load_path}. Ensure config.json is present. Error: {e}")
+
+        try:
+            processor = AutoProcessor.from_pretrained(load_path, use_fast=True)
+        except Exception as e:
+             raise ValueError(f"Failed to load AutoProcessor from {load_path}. Error: {e}")
+        
+        wrapper = KandinskyQwenWrapper(model, processor, device)
+        return io.NodeOutput(wrapper)
+
 class KandinskyLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -100,7 +187,7 @@ class KandinskyTextEncode(io.ComfyNode):
             description="Encodes text using Kandinsky's combined CLIP and Qwen2.5-VL embedding logic.",
             inputs=[
                 io.Clip.Input("clip", tooltip="A standard CLIP-L/14 model. Use CLIPLoader with 'stable_diffusion' type."),
-                io.Clip.Input("qwen_vl", tooltip="The Qwen2.5-VL model. Use CLIPLoader with 'qwen_image' type."),
+                io.Clip.Input("qwen_vl", tooltip="The Qwen2.5-VL model. Use CLIPLoader with 'qwen_image' type OR Kandinsky 5 Qwen Loader."),
                 io.String.Input("text", multiline=True, dynamic_prompts=True),
                 io.String.Input("negative_text", multiline=True, dynamic_prompts=True, default="Static, 2D cartoon, cartoon, 2d animation, paintings, images, worst quality, low quality, ugly, deformed, walking backwards"),
                 io.Combo.Input("content_type", options=["video", "image"], default="video"),
@@ -112,20 +199,17 @@ class KandinskyTextEncode(io.ComfyNode):
         )
 
     @classmethod
-    def _get_raw_embeds(cls, text: str, clip_wrapper: comfy.sd.CLIP, qwen_vl_wrapper: comfy.sd.CLIP, content_type: str):
-        import comfy.model_management as mm
-
-        load_device = mm.get_torch_device()
-        try:
-            if hasattr(clip_wrapper, 'cond_stage_model'):
-                clip_wrapper.cond_stage_model.to(load_device)
-            if hasattr(qwen_vl_wrapper, 'cond_stage_model'):
-                qwen_vl_wrapper.cond_stage_model.to(load_device)
-        except Exception:
-            pass
-
+    @torch.no_grad()
+    def _run_clip(cls, text: str, clip_wrapper: comfy.sd.CLIP):
         clip_tokens = clip_wrapper.tokenize(text)
         _, pooled_embed = clip_wrapper.encode_from_tokens(clip_tokens, return_pooled=True)
+        return pooled_embed
+
+    @classmethod
+    @torch.no_grad()
+    def _run_qwen(cls, text: str, qwen_vl_wrapper, content_type: str):
+        if isinstance(qwen_vl_wrapper, KandinskyQwenWrapper):
+             return qwen_vl_wrapper.encode(text, content_type)
 
         qwen_template_config = Qwen2_5_VLTextEmbedder.PROMPT_TEMPLATE
         prompt_template = "\n".join(qwen_template_config["template"][content_type])
@@ -139,33 +223,41 @@ class KandinskyTextEncode(io.ComfyNode):
         if attention_mask is None:
             is_padding = torch.abs(text_embeds_padded).sum(dim=-1) < 1e-6
             attention_mask = (~is_padding).long()
-
-        return text_embeds_padded, attention_mask, pooled_embed
+        
+        return text_embeds_padded, attention_mask
 
     @classmethod
     def execute(cls, clip, qwen_vl, text, negative_text, content_type) -> io.NodeOutput:
         import comfy.model_management as mm
 
+        load_device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
 
-        pos_text_embeds, pos_attn_mask, pos_pooled_embed = cls._get_raw_embeds(text.split('\n')[0], clip, qwen_vl, content_type)
-        neg_text_embeds, neg_attn_mask, neg_pooled_embed = cls._get_raw_embeds(negative_text.split('\n')[0], clip, qwen_vl, content_type)
+        # Process CLIP
+        mm.soft_empty_cache()
+        mm.load_model_gpu(clip.patcher)
+        pos_pooled_embed = cls._run_clip(text.split('\n')[0], clip)
+        neg_pooled_embed = cls._run_clip(negative_text.split('\n')[0], clip)
 
-        offloaded_models = []
+        # Process Qwen-VL
         try:
-            if hasattr(clip, 'cond_stage_model'):
-                clip.cond_stage_model.to(offload_device)
-                offloaded_models.append("CLIP")
-            if hasattr(qwen_vl, 'cond_stage_model'):
-                qwen_vl.cond_stage_model.to(offload_device)
-                offloaded_models.append("Qwen-VL")
-
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                if offloaded_models:
-                    print(f"CLIP models offloaded to CPU: {', '.join(offloaded_models)}")
-        except Exception as e:
-            print(f"Warning: CLIP offload failed: {e}")
+            mm.soft_empty_cache()
+            mm.load_model_gpu(qwen_vl.patcher)
+            
+            pos_text_embeds, pos_attn_mask = cls._run_qwen(text.split('\n')[0], qwen_vl, content_type)
+            neg_text_embeds, neg_attn_mask = cls._run_qwen(negative_text.split('\n')[0], qwen_vl, content_type)
+            
+        except torch.OutOfMemoryError:
+            print("Warning: Qwen-VL OOM on GPU, falling back to CPU. This will be slower.")
+            mm.soft_empty_cache()
+            try:
+                if hasattr(qwen_vl, 'cond_stage_model'):
+                    qwen_vl.cond_stage_model.to("cpu")
+                
+                pos_text_embeds, pos_attn_mask = cls._run_qwen(text.split('\n')[0], qwen_vl, content_type)
+                neg_text_embeds, neg_attn_mask = cls._run_qwen(negative_text.split('\n')[0], qwen_vl, content_type)
+            except Exception as e:
+                raise e
 
         if pos_text_embeds.shape[1] != neg_text_embeds.shape[1]:
             max_len = max(pos_text_embeds.shape[1], neg_text_embeds.shape[1])

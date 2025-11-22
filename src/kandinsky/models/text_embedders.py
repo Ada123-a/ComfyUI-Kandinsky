@@ -60,10 +60,8 @@ class Qwen2_5_VLTextEmbedder:
         )
         self.model = freeze(self.model)
         # torch.compile can improve performance but may have compatibility issues in some environments
-        try:
-            self.model = torch.compile(self.model, dynamic=True)
-        except Exception as e:
-            print(f"Warning: torch.compile failed, continuing without compilation: {e}")
+        # Removed torch.compile to prevent core dumps
+        pass
         self.processor = AutoProcessor.from_pretrained(conf.checkpoint_path, use_fast=True)
         self.max_length = conf.max_length
         self.text_token_padding = text_token_padding
